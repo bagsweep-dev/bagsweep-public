@@ -12,7 +12,6 @@
 
 > **Status.** Phase 1 (demand validation) is **live** at [app.bagsweep.xyz](https://app.bagsweep.xyz). The phase-2 protocol (ERC-4337 contracts + keeper) is built and running on **Robinhood Chain testnet**; mainnet is gated on a full external audit and the phase-1 demand signal.
 >
-> ⚠️ **There is no $REAP token yet.** Any contract, presale, or "buy" claiming to be $REAP is a scam. The one official contract will be announced on [t.me/bagsweep](https://t.me/bagsweep) and [x.com/bagsweep](https://x.com/bagsweep) the day it launches, and nowhere else.
 
 ## The idea
 
@@ -50,9 +49,9 @@ The core invariant, verified under adversarial review: **a fully compromised kee
 
 Secrets live in gitignored `.env` files (`contracts/.env`, `keeper/.env`). Never commit them.
 
-## The token: $REAP (not launched)
+## The token: $REAP 
 
-$REAP will capture protocol revenue through an **enforced** buy-and-burn: a share of the harvest fee buys $REAP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. No staking, no lockups, no access gates. More usage means more burn. It does not exist yet.
+$REAP will capture protocol revenue through an **enforced** buy-and-burn: a share of the harvest fee buys $REAP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. No staking, no lockups, no access gates. More usage means more burn. 
 
 ## Phase-1 tracker
 
