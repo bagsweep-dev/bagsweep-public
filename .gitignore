@@ -1,0 +1,19 @@
+node_modules/
+data/
+
+# Secrets — never commit. contracts/.env holds DEPLOYER_KEY / KEEPER_KEY.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Hardhat build output
+contracts/artifacts/
+contracts/cache/
+keeper/artifacts/
+
+# Tooling / editor cruft
+.qoder/
+*.log

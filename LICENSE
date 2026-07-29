@@ -1,0 +1,28 @@
+BagSweep Source-Available License
+
+Copyright (c) 2026 BagSweep. All rights reserved.
+
+This source code is published for TRANSPARENCY, SECURITY REVIEW, and independent
+VERIFICATION of the BagSweep protocol. It is source-available, NOT open source.
+
+PERMITTED, at no charge:
+  - Read, review, audit, quote, and reference this code.
+  - Compile and run it locally against TEST networks to evaluate or verify it.
+
+NOT PERMITTED without prior written permission from BagSweep:
+  - Deploying, hosting, operating, or otherwise using this software or any
+    derivative work in production, or to provide any product or service.
+  - Any commercial use.
+  - Presenting this software or a derivative as "BagSweep", "$REAP", or as
+    affiliated with, endorsed by, or originating from them.
+
+Nothing here grants any trademark, brand, or naming rights.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Licensing inquiries: via the project's public channels at bagsweep.xyz.

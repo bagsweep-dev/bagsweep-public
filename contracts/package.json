@@ -1,0 +1,22 @@
+{
+  "name": "bagsweep-contracts",
+  "version": "0.1.0",
+  "description": "BagSweep Meme-to-RWA Yield Sweep Protocol — Smart Contracts",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:rh": "hardhat run scripts/deploy.js --network robinhood",
+    "node": "hardhat node --fork https://rpc.mainnet.chain.robinhood.com"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  },
+  "devDependencies": {
+    "@account-abstraction/contracts": "^0.8.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^17.4.2",
+    "hardhat": "^2.22.0"
+  }
+}

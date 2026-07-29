@@ -1,0 +1,7 @@
+node_modules/
+contracts/
+keeper/
+landing/
+.env
+.env.*
+*.log

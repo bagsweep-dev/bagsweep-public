@@ -1,0 +1,13 @@
+{
+  "name": "bagsweep",
+  "version": "0.2.0",
+  "description": "BagSweep: read-only meme PnL tracker and sweep simulator for Robinhood Chain and Solana. Phase 1 demand validation, no wallet connection.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

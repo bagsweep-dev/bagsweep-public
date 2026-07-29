@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BagSweep</title>
+<meta name="description" content="Read-only meme PnL tracker and sweep simulator for Robinhood Chain and Solana. See what a take-profit sweep policy would do for your bags.">
+<meta property="og:title" content="BagSweep">
+<meta property="og:description" content="Read-only meme PnL tracker and sweep simulator for Robinhood Chain and Solana. Paste an address, see what a sweep policy would move today.">
+<meta property="og:url" content="https://bagsweep.xyz/">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="/styles.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>BAG<span>SWEEP</span></h1>
+  <p class="tag">Read-only meme PnL tracker and sweep simulator for Robinhood Chain and Solana. Paste an address. Nothing to connect, nothing to sign.</p>
+
+  <div class="card">
+    <div class="row">
+      <input type="text" id="addr" placeholder="0x... (Robinhood Chain) or a Solana address" spellcheck="false">
+      <button id="analyze">Analyze</button>
+    </div>
+    <div id="status" class="notes"></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="cards" id="statCards"></div>
+
+    <div class="card">
+      <div class="row spread">
+        <strong>Positions</strong>
+        <button id="pnlBtn" class="ghost">Compute cost basis</button>
+      </div>
+      <div id="pnlStatus" class="notes"></div>
+      <div class="scroll-x">
+        <table id="posTable">
+          <thead><tr>
+            <th>Token</th><th>Class</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Value</th>
+            <th class="num pnl-col hidden">Cost</th><th class="num pnl-col hidden">Realized</th><th class="num pnl-col hidden">Unrealized</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <ul class="notes" id="metaNotes"></ul>
+    </div>
+
+    <div class="card">
+      <strong>Sweep simulator</strong>
+      <p class="notes">What a standing, user-authored sweep policy would do with this portfolio today.</p>
+      <div class="sim-controls">
+        <div class="ctl">
+          <label>Sweep percentage<output id="pctOut">25%</output></label>
+          <input type="range" id="pct" min="5" max="75" step="5" value="25">
+        </div>
+        <div class="ctl">
+          <label>Minimum position size<output id="minOut">$50</output></label>
+          <input type="range" id="minUsd" min="0" max="1000" step="25" value="50">
+        </div>
+        <div class="ctl">
+          <label>Sweep from</label>
+          <div class="radio-row">
+            <label><input type="radio" name="mode" value="position" checked> whole position</label>
+            <label><input type="radio" name="mode" value="profits"> unrealized profits only</label>
+          </div>
+        </div>
+        <div class="ctl">
+          <label>Destination</label>
+          <div class="radio-row">
+            <label><input type="radio" name="dest" value="usdg" checked> USDG yield</label>
+            <label><input type="radio" name="dest" value="stocks"> tokenized stocks</label>
+            <label><input type="radio" name="dest" value="split"> 50/50</label>
+          </div>
+        </div>
+      </div>
+      <div class="sweep-result" id="simOut"></div>
+    </div>
+
+    <div class="card ask" id="askCard">
+      <h2>The actual question</h2>
+      <p>If a verified, immutable, non-custodial protocol existed that executed exactly the policy above, written by you, bounded by code, revocable any time, would you turn it on for this wallet?</p>
+      <div class="row mt12">
+        <button id="yesBtn">I would authorize it</button>
+        <button id="noBtn" class="ghost">Not for me</button>
+      </div>
+      <textarea id="note" rows="2" placeholder="Optional: what would make this a yes / what worries you?" class="note-box"></textarea>
+      <div id="askStatus" class="notes"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Sources: public chain RPCs, DexScreener, Scallar, Coingecko. BagSweep is a read-only phase 1 demand test for a sweep protocol that does not exist yet; nothing here moves funds.
+  PnL is best-effort: swap history is capped, transfers with no visible counterflow carry no basis, and sells paid out in native coin by a router can be missed.
+  Robinhood Chain stock-token balances are ERC-8056 display-adjusted. Solana majors and xStocks are classified heuristically by symbol and liquidity, so a well-funded impostor token could be mislabeled; verify before acting.
+  Not investment advice, and no data about you is collected beyond the address you paste and the answer you click.
+</footer>
+</body>
+</html>

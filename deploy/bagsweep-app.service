@@ -1,0 +1,26 @@
+[Unit]
+Description=BagSweep App (app.bagsweep.xyz)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=root
+
+ExecStartPre=-/usr/bin/docker stop bagsweep-app
+ExecStartPre=-/usr/bin/docker rm bagsweep-app
+ExecStartPre=/usr/bin/docker build -t bagsweep-app /opt/bagsweep
+
+ExecStart=/usr/bin/docker run \
+  --name bagsweep-app \
+  -p 127.0.0.1:3010:3010 \
+  --env-file /opt/bagsweep/.env \
+  -v /opt/bagsweep/data:/app/data \
+  bagsweep-app
+
+ExecStop=/usr/bin/docker stop bagsweep-app
+
+[Install]
+WantedBy=multi-user.target
