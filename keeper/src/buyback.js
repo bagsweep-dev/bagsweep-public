@@ -12,7 +12,7 @@
 import { ethers } from "ethers";
 import { config } from "./config.js";
 import { getProvider } from "./monitor.js";
-import { encodeV3Path } from "./router.js";
+import { selectBestRoute } from "./router.js";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -45,8 +45,23 @@ export function planBuyback({ usdgBalance, maxSpendBps, cooldown, lastBuyback, n
 }
 
 /**
+ * Choose the USDG -> $REAP swap route and size the slippage floor. Launchpad tokens pair
+ * with WETH, not USDG, so the direct [USDG, $REAP] pool usually does not exist; when it is
+ * missing this routes via the configured hubs (USDG -> WETH -> $REAP), picking whichever
+ * candidate quotes deepest. Pure given feeFor/quote (runBuyback injects the adapter + quoter).
+ * @returns {Promise<{path:string[], fees:number[], amountOut:bigint, minOut:bigint}|null>}
+ */
+export async function planBuybackSwap({ usdg, sweepToken, hubs, amountIn, slippageBps, feeFor, quote }) {
+  // selectBestRoute routes tokenIn -> (its `usdg` param); here the OUTPUT token is the sweep token.
+  const route = await selectBestRoute({ tokenIn: usdg, usdg: sweepToken, hubs, amountIn, feeFor, quote });
+  if (!route || route.amountOut <= 0n) return null;
+  const minOut = (route.amountOut * BigInt(10000 - slippageBps)) / 10000n;
+  return { path: route.path, fees: route.fees, amountOut: route.amountOut, minOut };
+}
+
+/**
  * Run one buyback cycle. Returns the tx hash, or null when it's a no-op (disabled,
- * pre-launch, on cooldown, under the min threshold, or the USDG/$REAP pool isn't quotable).
+ * pre-launch, on cooldown, under the min threshold, or no USDG -> $REAP route exists).
  */
 export async function runBuyback(provider = getProvider()) {
   if (!config.buyback || !config.sweepRouter || !config.quoter) {
@@ -73,20 +88,26 @@ export async function runBuyback(provider = getProvider()) {
   });
   if (!plan.eligible) { console.log(`[buyback] skip: ${plan.reason}`); return null; }
 
-  // Quote USDG -> $REAP on the direct pool via the adapter's configured fee tier.
+  // Route USDG -> $REAP: direct if a USDG/$REAP pool exists, else via a hub (WETH) since
+  // launchpad tokens pair with WETH, not USDG. planBuybackSwap quotes each candidate and
+  // picks the deepest, then applies the slippage floor.
   const adapter = new ethers.Contract(config.sweepRouter, ADAPTER_ABI, provider);
   const quoter = new ethers.Contract(config.quoter, QUOTER_ABI, provider);
-  const fee = Number(await adapter.feeFor(config.usdg, sweepToken));
-  if (!fee) { console.warn("[buyback] no USDG/$REAP fee configured on the adapter; skipping"); return null; }
-  let quoted;
-  try { quoted = (await quoter.quoteExactInput.staticCall(encodeV3Path([config.usdg, sweepToken], [fee]), plan.usdgAmount))[0]; }
-  catch (e) { console.warn(`[buyback] quote failed (${e.message}); skipping`); return null; }
-  if (!quoted || BigInt(quoted) <= 0n) { console.warn("[buyback] quote returned 0; skipping"); return null; }
+  const swap = await planBuybackSwap({
+    usdg: config.usdg,
+    sweepToken,
+    hubs: config.sweepHubs,
+    amountIn: plan.usdgAmount,
+    slippageBps: config.buybackSlippageBps,
+    feeFor: (a, b) => adapter.feeFor(a, b),
+    quote: async (path, amt) => (await quoter.quoteExactInput.staticCall(path, amt))[0],
+  });
+  if (!swap) { console.warn("[buyback] no USDG -> $REAP route (direct or via a hub); skipping"); return null; }
 
-  const minOut = (BigInt(quoted) * BigInt(10000 - config.buybackSlippageBps)) / 10000n;
+  const minOut = swap.minOut;
   const deadline = block.timestamp + 300;
   const swapData = SWAP_IFACE.encodeFunctionData("swapExactTokensForTokens", [
-    plan.usdgAmount, minOut, [config.usdg, sweepToken], config.buyback, deadline,
+    plan.usdgAmount, minOut, swap.path, config.buyback, deadline,
   ]);
 
   // Simulate first: a plan-byte / pool / cooldown / floor failure reverts here for free
