@@ -107,6 +107,10 @@ async function main() {
     const sponsorSigner = process.env.SPONSOR_SIGNER || keeper;
     await wait(paymaster.setSponsorSigner(sponsorSigner));
     A.sponsorSigner = sponsorSigner;
+    // M-2 (audit v4): deposit gas ONLY. Do NOT call paymaster.addStake — we run our own bundler
+    // (safe-mode off, single operator), so no stake is needed, and staked ETH would be
+    // irrecoverable (the paymaster has no unlockStake/withdrawStake passthrough). Deposit is
+    // withdrawable via withdrawTo; stake would not be.
     const deposit = ethers.parseEther(process.env.PAYMASTER_DEPOSIT || "0.05");
     await wait(paymaster.deposit({ value: deposit }));
     console.log("  ", A.paymaster, "| sponsor", sponsorSigner, "| funded", ethers.formatEther(deposit), "ETH");
@@ -145,7 +149,13 @@ async function main() {
   console.log("▸ Wiring executor...");
   await wait(executor.setSanctionedRouter(A.sweepRouter, true));
   await wait(executor.setTreasury(A.buyback));
-  console.log("   adapter sanctioned; treasury -> SweepBuyback; feeBps LEFT 0 (flip on post-canary)");
+  // M-3 (audit v4): enable the per-account on-chain sweep cooldown so a compromised keeper
+  // cannot chain successive pct-of-balance sweeps. Owner-set now; moves under the timelock at
+  // lockdown. Default 1h; override with SWEEP_COOLDOWN.
+  const sweepCooldown = Number(process.env.SWEEP_COOLDOWN || 3600);
+  await wait(executor.setMinSweepInterval(sweepCooldown));
+  A.minSweepInterval = sweepCooldown;
+  console.log(`   adapter sanctioned; treasury -> SweepBuyback; feeBps LEFT 0; minSweepInterval ${sweepCooldown}s`);
   if (process.env.YIELD_POOL) { await wait(executor.setYieldPool(process.env.YIELD_POOL)); console.log("   yieldPool", process.env.YIELD_POOL); }
   if (process.env.STOCK_ROUTER) { await wait(executor.setStockRouter(process.env.STOCK_ROUTER)); }
   if (process.env.SANCTIONED_STOCK) { await wait(executor.setSanctionedStock(process.env.SANCTIONED_STOCK, true)); }

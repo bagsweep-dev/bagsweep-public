@@ -125,6 +125,7 @@ contract SweepRouterV3Adapter is Ownable, ReentrancyGuard {
 
     /// @notice Rescue a stray token (the adapter holds no funds between calls).
     function rescue(address token, uint256 amount, address dest) external onlyOwner {
+        if (dest == address(0)) revert ZeroAddress(); // L-5: match the V4 adapter's guard
         IERC20(token).safeTransfer(dest, amount);
         emit TokensRescued(token, amount, dest);
     }

@@ -24,6 +24,9 @@ export const SweepMode = { PROFIT_ONLY: 0, WHOLE_POSITION: 1 } as const;
 // array from contracts/artifacts/**/<Name>.sol/<Name>.json so signatures can't drift.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// createAccount(address owner, uint256 salt) matches the deployed factory. NOTE: the factory's
+// read is getAddress(bytes32 salt, bytes bytecode) (full init code), NOT (owner, salt) — so the
+// counterfactual address is computed client-side via CREATE2 in aa.ts, not read here (audit M-1).
 export const factoryAbi = [
   {
     type: "function",
@@ -34,16 +37,6 @@ export const factoryAbi = [
       { name: "salt", type: "uint256" },
     ],
     outputs: [{ name: "account", type: "address" }],
-  },
-  {
-    type: "function",
-    name: "getAddress",
-    stateMutability: "view",
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "salt", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "address" }],
   },
 ] as const;
 

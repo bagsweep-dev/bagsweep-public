@@ -19,6 +19,17 @@ Canonical mainnet addresses used below:
 - [ ] **Three distinct keys** exist: `deployer` (cold admin), `keeper` (hot signer, its key lives ONLY on the keeper host), `guardian` (fast pause). Never reuse one for another.
 - [ ] Deployer funded with mainnet ETH for deploys + the paymaster deposit.
 
+> **Audit v4 contract deltas (must be in external-audit scope).** This revision changes the core:
+> M-3 (per-account `minSweepInterval` on the executor, set to 3600s at deploy, moves under the
+> timelock at lockdown), L-1/L-4 (two-step ownership on the account + factory), L-5 (V3 adapter
+> rescue zero-guard). So the contracts are NOT the previously-frozen bytes — the external audit
+> must cover these. **M-2:** never call `paymaster.addStake` (stake would be irrecoverable; the
+> own-bundler setup needs none). **I-4:** the `SweepRouterV4Adapter` is dormant — $REAP is a V3
+> token, so it is NOT sanctioned for the $REAP buyback; run `forktest-v4.js` only if a
+> V4-graduating token is later supported. Canonical Permit2 on RH confirmed at
+> `0x000000000022D473030F116dDEE9F6B43aC78BA3`; source the V4 UniversalRouter from Uniswap's
+> official registry at that time.
+
 ## 1. Read the real pool fee tiers
 The buyback routes USDG -> WETH -> $REAP; the adapter needs the exact tier for each hop.
 ```bash
@@ -123,6 +134,16 @@ publicly visible timelock op.
   is off the timelock by design so it is instant; unpause the same way.
 - No owner path drains USDG or user funds by design; the worst case is a paused protocol while
   a fix is queued through the timelock.
+
+## STOCKS / SPLIT destinations (deferred; only if enabled later)
+MVP mainnet ships USDG-yield only. Before enabling STOCKS/SPLIT policies:
+- `stockRouter` MUST be a sanctioned adapter (`SweepRouterV3Adapter`/`SweepRouterV4Adapter`), never
+  a raw DEX router: `_swapToStock` builds a fixed direct `[USDG, stockTarget]` V2-style call, so a
+  raw router with no direct USDG/stock pair makes the destination unusable. The adapters resolve
+  the configured pool per pair. (audit L-3)
+- The keeper must quote the stock leg on the **net-of-fee** USDG amount (the executor skims the fee
+  before `_swapToStock`); quoting the gross amount yields spurious `SweepSlippageExceeded` reverts
+  once `feeBps` exceeds the user's slippage tolerance. (audit L-2)
 
 ## 9. Sync
 Mirror `scripts/deploy-mainnet.js` + this runbook into the public repo (`bagsweep-public`) so

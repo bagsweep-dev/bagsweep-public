@@ -20,6 +20,9 @@ contract SmartAccountFactory {
     /// @dev Owner of the factory (can update default keeper).
     address public owner;
 
+    /// @dev Pending owner for the two-step ownership transfer (L-4).
+    address public pendingOwner;
+
     event AccountCreated(
         address indexed account,
         address indexed ownerAddr,
@@ -28,6 +31,8 @@ contract SmartAccountFactory {
     );
 
     event DefaultKeeperSet(address indexed keeper);
+    event FactoryOwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event FactoryOwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
@@ -94,8 +99,18 @@ contract SmartAccountFactory {
         emit DefaultKeeperSet(_keeper);
     }
 
+    /// @notice Start a two-step factory-ownership transfer; the new owner must accept. (L-4)
     function transferFactoryOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "zero address");
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit FactoryOwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Complete the two-step factory-ownership transfer; pending owner only.
+    function acceptFactoryOwnership() external {
+        require(msg.sender == pendingOwner, "not pending owner");
+        emit FactoryOwnershipTransferred(owner, pendingOwner);
+        owner = pendingOwner;
+        pendingOwner = address(0);
     }
 }

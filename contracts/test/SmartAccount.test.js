@@ -159,10 +159,21 @@ describe("SmartAccountFactory", function () {
       ).to.be.revertedWith("not owner");
     });
 
-    it("should allow owner to transfer ownership", async function () {
+    it("should allow owner to transfer ownership (two-step, L-1)", async function () {
       await account.connect(user1).transferOwnership(keeper.address);
+      // Not transferred until accepted: guards against a mistyped new owner.
+      expect(await account.pendingOwner()).to.equal(keeper.address);
+      expect(await account.owner()).to.equal(user1.address);
+      await account.connect(keeper).acceptOwnership();
       expect(await account.owner()).to.equal(keeper.address);
       expect(await account.signer()).to.equal(keeper.address);
+      expect(await account.pendingOwner()).to.equal(ethers.ZeroAddress);
+    });
+
+    it("only the pending owner can accept ownership (L-1)", async function () {
+      await account.connect(user1).transferOwnership(keeper.address);
+      await expect(account.connect(user1).acceptOwnership()).to.be.revertedWith("not pending owner");
+      expect(await account.owner()).to.equal(user1.address);
     });
 
     // ── Owner always-exit: direct, EntryPoint-independent escape hatch ──

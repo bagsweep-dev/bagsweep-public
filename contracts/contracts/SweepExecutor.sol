@@ -66,6 +66,14 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     ///      fee is skipped entirely, regardless of `feeBps`.
     address public treasury;
 
+    /// @dev Per-account sweep cooldown (M-3): minimum seconds between successful sweeps of the
+    ///      same account. Enforced on-chain so a compromised keeper cannot chain N successive
+    ///      pct-of-balance sweeps into a same-block geometric liquidation. 0 = disabled; set
+    ///      via the timelock post-deploy (e.g. 1h). The off-chain keeper cooldown is not a
+    ///      security boundary against the keeper's own key; this is.
+    uint256 public minSweepInterval;
+    mapping(address => uint256) public lastSweepAt;
+
     // ─── Policy-enforcement errors (a compromised keeper cannot exceed these) ───
     error NoActivePolicy();
     error DestinationMismatch();
@@ -78,11 +86,14 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     error DuplicateToken();
     error UnsafeSwapData();
     error SweepsPaused();
+    error SweepCooldown();
 
     /// @notice Emitted for every fee skim, so each fee is a verifiable chain read.
     event FeeCollected(address indexed account, uint256 usdgFee, uint256 feeBps, uint256 timestamp);
     /// @notice Emitted whenever the fee rate or treasury changes.
     event FeeConfigured(uint256 feeBps, address treasury);
+    /// @notice Emitted when the per-account sweep cooldown changes.
+    event MinSweepIntervalSet(uint256 interval);
     // Trust-anchor config events, so a guardian can monitor where money can route.
     event YieldPoolSet(address indexed pool);
     event StockRouterSet(address indexed router);
@@ -117,6 +128,12 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
         if (registry.paused()) revert SweepsPaused();
 
         address account = msg.sender;
+
+        // Per-account rate limit (M-3): bounds a compromised keeper to one sweep per interval,
+        // so it cannot chain successive pct-of-balance sweeps into a geometric liquidation.
+        if (minSweepInterval != 0 && block.timestamp < lastSweepAt[account] + minSweepInterval) {
+            revert SweepCooldown();
+        }
 
         // ─── On-chain policy enforcement — the keeper is NOT trusted here ───
         // Whatever the keeper submits, it cannot exceed the user's own policy:
@@ -214,6 +231,7 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
         // 3. Skim the capped protocol fee from the proceeds, then route the rest.
         //    Proceeds (net of fee) always return to `account`.
         if (totalUsdgReceived == 0) return;
+        lastSweepAt[account] = block.timestamp; // M-3: stamp only on a real sweep (a no-op does not consume the cooldown)
 
         uint256 fee = _skimFee(account, totalUsdgReceived);
 
@@ -383,6 +401,13 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
         emit FeeConfigured(feeBps, _treasury);
+    }
+
+    /// @notice Set the per-account sweep cooldown in seconds (0 disables). (M-3)
+    /// @dev    Governance-sensitive: route through the timelock before mainnet.
+    function setMinSweepInterval(uint256 _interval) external onlyOwner {
+        minSweepInterval = _interval;
+        emit MinSweepIntervalSet(_interval);
     }
 
     /// @dev Rescue stuck tokens (admin only).

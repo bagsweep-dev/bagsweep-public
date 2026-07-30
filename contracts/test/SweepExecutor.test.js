@@ -86,6 +86,23 @@ describe("SweepExecutor — on-chain policy enforcement", function () {
     expect(await usdg.balanceOf(account.address)).to.equal(ONE(100, 6)); // 100 meme -> 100 USDG
   });
 
+  it("M-3: enforces the per-account sweep cooldown (blocks chained liquidation)", async function () {
+    await executor.setMinSweepInterval(3600); // 1h
+    await setPolicy(1000); // 10%
+    // first sweep lands
+    await executor.connect(account).executeSweep([await swap(ONE(50), ONE(45, 6))], 0, ethers.ZeroAddress, 0);
+    // a second sweep within the interval is rejected on-chain (not just off-chain)
+    await expect(executor.connect(account).executeSweep([await swap(ONE(50), ONE(45, 6))], 0, ethers.ZeroAddress, 0))
+      .to.be.revertedWithCustomError(executor, "SweepCooldown");
+    // after the interval elapses it works again
+    await ethers.provider.send("evm_increaseTime", [3601]);
+    await ethers.provider.send("evm_mine", []);
+    await executor.connect(account).executeSweep([await swap(ONE(50), ONE(45, 6))], 0, ethers.ZeroAddress, 0);
+    // only the owner (timelock on mainnet) can change the interval
+    await expect(executor.connect(attacker).setMinSweepInterval(0))
+      .to.be.revertedWithCustomError(executor, "OwnableUnauthorizedAccount");
+  });
+
   it("rejects an amount that exceeds the policy percentage", async function () {
     await setPolicy(1000); // 10% of 1000 = 100 max
     const s = await swap(ONE(101), ONE(90, 6)); // one over the cap

@@ -36,8 +36,13 @@ contract SmartAccount is Account, SignerECDSA {
     /// @dev SweepExecutor address (set by owner for convenience).
     address public sweepExecutor;
 
+    /// @dev Pending owner for the two-step ownership transfer (L-1).
+    address public pendingOwner;
+
     event KeeperSet(address indexed keeper);
     event SweepExecutorSet(address indexed executor);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwnerOrSelf() {
         require(msg.sender == owner || msg.sender == address(this), "not owner");
@@ -206,11 +211,21 @@ contract SmartAccount is Account, SignerECDSA {
         emit SweepExecutorSet(_executor);
     }
 
-    /// @notice Transfer ownership to a new EOA (owner only).
+    /// @notice Start a two-step ownership transfer to a new EOA (owner only). The new owner
+    ///         must call {acceptOwnership}, so a mistyped address cannot brick the owner path. (L-1)
     function transferOwnership(address newOwner) external onlyOwnerOrSelf {
         require(newOwner != address(0), "zero address");
-        owner = newOwner;
-        _setSigner(newOwner);
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Complete the two-step ownership transfer; callable only by the pending owner.
+    function acceptOwnership() external {
+        require(msg.sender == pendingOwner, "not pending owner");
+        emit OwnershipTransferred(owner, pendingOwner);
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        _setSigner(owner);
     }
 
     // ─────────────────────────── Overrides ───────────────────────────

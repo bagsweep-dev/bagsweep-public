@@ -4,9 +4,15 @@ import {
   encodeFunctionData,
   createPublicClient,
   http,
+  getCreate2Address,
+  keccak256,
+  encodeAbiParameters,
+  concatHex,
+  toHex,
 } from "viem";
 import { rhChain } from "../config/chains";
-import { ADDR, factoryAbi, registryAbi, erc20Abi } from "../config/contracts";
+import { ADDR, registryAbi, erc20Abi } from "../config/contracts";
+import { SMART_ACCOUNT_CREATION_CODE } from "../config/smartAccountBytecode";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Account interaction layer.
@@ -31,13 +37,22 @@ import { ADDR, factoryAbi, registryAbi, erc20Abi } from "../config/contracts";
 
 export const publicClient = createPublicClient({ chain: rhChain, transport: http() });
 
-/** Deterministic (CREATE2) smart-account address for an owner; salt defaults to 0. */
-export async function getSmartAccountAddress(owner: Address, salt = 0n): Promise<Address> {
-  return publicClient.readContract({
-    address: ADDR.factory,
-    abi: factoryAbi,
-    functionName: "getAddress",
-    args: [owner, salt],
+/**
+ * Counterfactual (CREATE2) smart-account address, computed CLIENT-SIDE (no RPC). The factory's
+ * read is getAddress(bytes32 salt, bytes bytecode) over the full init code, NOT (owner, salt), so
+ * an (owner, salt) call reverts (audit M-1). This reproduces the factory's own computation,
+ * keccak256(0xff ++ factory ++ salt ++ keccak256(creationCode ++ abi.encode(owner)))[12:], and is
+ * verified on-chain to equal factory.getAddress; keccak256(creationCode) == accountInitCodeHash.
+ */
+export function getSmartAccountAddress(owner: Address, salt = 0n): Address {
+  const initCode = concatHex([
+    SMART_ACCOUNT_CREATION_CODE,
+    encodeAbiParameters([{ type: "address" }], [owner]),
+  ]);
+  return getCreate2Address({
+    from: ADDR.factory,
+    salt: toHex(salt, { size: 32 }),
+    bytecodeHash: keccak256(initCode),
   });
 }
 

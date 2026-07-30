@@ -170,6 +170,11 @@ function PolicyForm({ state }: { state: UseQueryResult<AcctState> }) {
   const [token, setToken] = useState<string>(ADDR.testMeme);
   const s = state.data;
   const ready = !!s && s.deployed && s.executorSet;
+  // audit M-3 interim: the registry permits up to 5000 bps (50%) slippage, which widens the
+  // worst case of a keeper-key compromise. Cap what this UI will author well below that until
+  // the executor gains an on-chain per-account cooldown (next audited contract revision).
+  const MAX_UI_SLIPPAGE_BPS = 500;
+  const slipOk = Number(slippageBps) > 0 && Number(slippageBps) <= MAX_UI_SLIPPAGE_BPS;
 
   // MVP: destination always USDG yield, mode profit-only. Assembled as ownerExecute calldata.
   const setPolicyData = useMemo(() => {
@@ -199,8 +204,9 @@ function PolicyForm({ state }: { state: UseQueryResult<AcctState> }) {
       <label>Minimum notional (USDG)
         <input value={minUsd} onChange={(e) => setMinUsd(e.target.value)} inputMode="numeric" />
       </label>
-      <label>Max slippage (bps)
+      <label>Max slippage (bps, ≤ {MAX_UI_SLIPPAGE_BPS})
         <input value={slippageBps} onChange={(e) => setSlippageBps(e.target.value)} inputMode="numeric" />
+        {!slipOk && <span className="err"> capped at {MAX_UI_SLIPPAGE_BPS} bps ({MAX_UI_SLIPPAGE_BPS / 100}%) in this build</span>}
       </label>
       <label>Token
         <input value={token} onChange={(e) => setToken(e.target.value)} className="mono" />
@@ -209,7 +215,7 @@ function PolicyForm({ state }: { state: UseQueryResult<AcctState> }) {
       <div className="row">
         <TxButton
           label="Authorize policy"
-          disabled={!ready || !setPolicyData}
+          disabled={!ready || !setPolicyData || !slipOk}
           onRun={(w) => w({ address: s!.addr, abi: accountAbi, functionName: "ownerExecute", args: [ADDR.registry, 0n, setPolicyData!], chainId: rhChain.id })}
         />
         <span className="dest">→ USDG yield</span>
