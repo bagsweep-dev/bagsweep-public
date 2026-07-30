@@ -67,7 +67,7 @@ Use freshly-created accounts + mock tokens on testnet. (The mainnet test wallets
 | S1 | USDG_YIELD sweep: keeper submits `execute(executor,0,executeSweep([meme swap], USDG_YIELD, 0))` as a UserOp | meme sold, USDG (net of fee) returns to the account; `SweepExecuted` emitted |
 | S2 | STOCKS sweep | meme → USDG → sanctioned stock; stock returns to the account |
 | S3 | SPLIT_50_50 | half to yield, half to stock |
-| S4 | Fee on (feeBps=50, treasury=buyback) | `FeeCollected` emitted, 1% (of the tolerance) skimmed to `SweepBuyback`; then `buyback.buybackAndBurn(...)` burns $REAP, `BuybackBurned` emitted |
+| S4 | Fee on (feeBps=50, treasury=buyback) | `FeeCollected` emitted, 0.5% of proceeds skimmed to `SweepBuyback`; then `buyback.buybackAndBurn(...)` burns $REAP, `BuybackBurned` emitted |
 | S5 | Paymaster-sponsored | the keeper UserOp is gas-sponsored; `totalGasSponsored` increases |
 
 Verify each by reading events and account balances, and that the UserOp actually routed through the EntryPoint (not a direct call).

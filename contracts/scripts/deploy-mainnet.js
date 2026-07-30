@@ -4,7 +4,7 @@
  * Superset of scripts/deploy.js: deploys the core (registry, executor, factory, paymaster)
  * PLUS the SweepRouterV3Adapter, SweepBuyback, and BagSweepTimelock, then wires the routing,
  * the buyback ($REAP), and the fee sink. It deliberately does NOT:
- *   - flip feeBps on   (fees stay OFF until the runbook's canary passes)
+ *   - flip feeBps on   (fees stay OFF until the runbook's canary passes; launch target 50 bps = 0.5%)
  *   - hand config ownership to the timelock or move the pause to the guardian
  *     (both are staged, human-gated steps in MAINNET_RUNBOOK.md, after the canary)
  * so the deployer keeps fast control during bring-up. Run ONLY after a clean external audit.

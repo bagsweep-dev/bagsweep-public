@@ -114,7 +114,7 @@ skip, not a bad send.
 
 ## 6. Go live (fees on)
 ```bash
-cast send <executor> "setFeeBps(uint256)" <bps>   # e.g. the audited cap; start conservative
+cast send <executor> "setFeeBps(uint256)" 50   # 0.5% — the launch fee, well under the 1% MAX_FEE_BPS cap
 ```
 Fees now accrue in SweepBuyback; the keeper's buyback loop burns $REAP on its cooldown.
 
