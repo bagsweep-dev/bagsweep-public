@@ -1,6 +1,11 @@
-// SmartAccount creation code (type(SmartAccount).creationCode), from the compiled artifact.
-// The contracts are audit-frozen, so this is stable. keccak256(this) == factory.accountInitCodeHash()
-// (verified on-chain). Used for client-side CREATE2 counterfactual address computation (audit M-1).
+// SmartAccount creation code (type(SmartAccount).creationCode). DEPLOYMENT-SPECIFIC, not frozen:
+// it must equal the accountInitCodeHash of the factory the UI targets (ADDR.factory / VITE_FACTORY).
+// This snapshot matches the current testnet factory; the contracts have since changed (audit v5
+// L-1/M-3), so a factory deployed from newer source has a different hash. Regenerate via
+// contracts/scripts/gen-ui-bytecode.js from the exact build that deploys your target factory
+// (even a rebuild differs in the trailing metadata digest, changing the hash). The startup guard
+// assertBytecodeInSync() reads factory.accountInitCodeHash() and refuses to compute addresses on
+// mismatch, so drift fails loud instead of stranding counterfactually-funded deposits.
 import type { Hex } from "viem";
 
 export const SMART_ACCOUNT_CREATION_CODE: Hex =

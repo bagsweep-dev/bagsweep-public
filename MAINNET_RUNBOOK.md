@@ -28,7 +28,11 @@ Canonical mainnet addresses used below:
 > token, so it is NOT sanctioned for the $REAP buyback; run `forktest-v4.js` only if a
 > V4-graduating token is later supported. Canonical Permit2 on RH confirmed at
 > `0x000000000022D473030F116dDEE9F6B43aC78BA3`; source the V4 UniversalRouter from Uniswap's
-> official registry at that time.
+> official registry at that time. **Audit v5:** the UI's `SMART_ACCOUNT_CREATION_CODE` is
+> deployment-specific — after deploying the factory, run `node contracts/scripts/gen-ui-bytecode.js`
+> from THIS build and point `VITE_FACTORY` at the new factory, so
+> `keccak256(constant) == factory.accountInitCodeHash()`. The UI startup guard rejects a mismatch;
+> a stale constant would compute wrong CREATE2 addresses and strand counterfactual-funded deposits.
 
 ## 1. Read the real pool fee tiers
 The buyback routes USDG -> WETH -> $REAP; the adapter needs the exact tier for each hop.

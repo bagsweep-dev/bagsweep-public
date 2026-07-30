@@ -16,6 +16,7 @@ import {
   getSweepExecutor,
   encodeSetPolicy,
   encodeRevoke,
+  assertBytecodeInSync,
 } from "./lib/aa";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
@@ -59,7 +60,22 @@ export default function App() {
 }
 
 function Protocol({ owner }: { owner: Address }) {
+  // Fail loud if the embedded bytecode doesn't match the configured factory (audit v5): a mismatch
+  // means every computed address is wrong, so disable account flows rather than strand deposits.
+  const guard = useQuery({ queryKey: ["bytecode-guard"], queryFn: assertBytecodeInSync, retry: false, staleTime: Infinity });
   const state = useAccountState(owner);
+  if (guard.isError) {
+    return (
+      <section className="card">
+        <h2>Configuration error</h2>
+        <p className="err">
+          The embedded SmartAccount bytecode does not match the configured factory, so computed
+          addresses would be wrong. Account flows are disabled. Regenerate the UI constant from the
+          deploying build (contracts/scripts/gen-ui-bytecode.js).
+        </p>
+      </section>
+    );
+  }
   return (
     <>
       <SmartAccount state={state} owner={owner} />

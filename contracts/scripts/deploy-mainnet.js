@@ -180,6 +180,9 @@ async function main() {
   for (const k of ["registry", "executor", "factory", "paymaster", "sweepRouter", "buyback", "timelock"]) {
     console.log(`  ${k.padEnd(11)} ${A[k] || "N/A"}`);
   }
+  console.log("\n⚠ UI (audit v5): run `node scripts/gen-ui-bytecode.js` from THIS build and set");
+  console.log("   VITE_FACTORY to the factory above, so the UI's SmartAccount bytecode matches this");
+  console.log("   deployment's accountInitCodeHash (the UI startup guard rejects a mismatch).");
   console.log("\n📋 NEXT (see MAINNET_RUNBOOK.md): set pool fees if unset -> deploy keeper (VPS) ->");
   console.log("   canary sweep + canary buyback -> executor.setFeeBps(<bps>) -> hand config ownership");
   console.log("   to the timelock and move the registry pause to the guardian.");

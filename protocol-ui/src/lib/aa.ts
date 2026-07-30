@@ -56,6 +56,27 @@ export function getSmartAccountAddress(owner: Address, salt = 0n): Address {
   });
 }
 
+/**
+ * Startup guard (audit v5). The embedded SMART_ACCOUNT_CREATION_CODE must match the factory the
+ * UI targets, or every computed CREATE2 address is wrong and counterfactual-funded deposits would
+ * strand at addresses the factory can never deploy to. Reads the factory's accountInitCodeHash
+ * once and asserts it equals keccak256(creation code); throws (fail loud) on mismatch. Call before
+ * enabling any account flow.
+ */
+export async function assertBytecodeInSync(): Promise<true> {
+  const onChain = await publicClient.readContract({
+    address: ADDR.factory,
+    abi: [{ type: "function", name: "accountInitCodeHash", stateMutability: "view", inputs: [], outputs: [{ type: "bytes32" }] }] as const,
+    functionName: "accountInitCodeHash",
+  });
+  if (onChain !== keccak256(SMART_ACCOUNT_CREATION_CODE)) {
+    throw new Error(
+      "SmartAccount bytecode out of sync with the factory: regenerate the UI constant from the deploying build (contracts/scripts/gen-ui-bytecode.js)."
+    );
+  }
+  return true;
+}
+
 /** Whether an address has contract code (i.e. the account is deployed). */
 export async function isDeployed(addr: Address): Promise<boolean> {
   const code = await publicClient.getCode({ address: addr });
