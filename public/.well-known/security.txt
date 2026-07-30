@@ -1,0 +1,6 @@
+# BagSweep security contact — report vulnerabilities responsibly.
+Contact: https://t.me/bagsweep
+Contact: https://x.com/bagsweep
+Expires: 2027-07-29T00:00:00Z
+Preferred-Languages: en
+Canonical: https://app.bagsweep.xyz/.well-known/security.txt
