@@ -7,6 +7,35 @@ sponsored flow (keeper-signed + paymaster-sponsored sweep through the deployed v
 is already proven on testnet by driving `handleOps` directly (a "private bundler"): see the
 reference tx `0x09159433004ce344e911b056870f3dc379a4893a269b3299affe2b217c2d1a21`.
 
+## Deployed (testnet, live 2026-07-30)
+
+A self-hosted bundler is running for RH testnet. Chosen implementation: **Pimlico Alto**
+(`ghcr.io/pimlicolabs/alto:latest`), because it is v0.8-current, chain-agnostic (takes the
+chainId from the RPC), and has `--chain-type arbitrum` for the Nitro L1-gas model plus
+`--safe-mode false` for the tracer-less public RPC.
+
+- **Where:** Docker container `bagsweep-bundler` on the app host, managed by systemd unit
+  `bagsweep-bundler.service`, bound to `127.0.0.1:4337`.
+- **Public endpoint:** `https://app.bagsweep.xyz/bundler` (nginx `location = /bundler` on the
+  existing TLS vhost, proxying to `127.0.0.1:4337`, with CORS reflecting the request origin so
+  the Vite dev UI can call it; no new DNS record or cert needed).
+- **Run flags:** `--entrypoints 0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108 --rpc-url <RH testnet>
+  --safe-mode false --chain-type arbitrum --min-entity-stake 0 --min-entity-unstake-delay 0
+  --port 4337`. Keys are read from a root-only env file (600) via the unit's
+  `EnvironmentFile`, not baked into the unit.
+- **Signers (funded from the deployer):** executor `0xCF08bE27F54B9f526fbc9eF91214FcA50a1Dce81`
+  (sends `handleOps`), utility `0xf5A1e1bd6224348272e7272A6F3e30B47a6f8d6b` (auto-deployed Alto's
+  simulation contract at first boot, refills the executor). Each seeded with 0.0015 testnet ETH;
+  top up the executor when it runs low (gas on RH testnet is ~0.02 gwei, so this lasts a while).
+- **Verified:** `eth_supportedEntryPoints` returns the v0.8 EntryPoint and `eth_chainId` returns
+  `0xb626` (46630), both via the public HTTPS endpoint.
+
+Still TODO for the gasless UI: the paymaster **sponsor endpoint** (signs the verifying paymaster's
+data) is not built yet; it is part of the AA adapter work (`protocol-ui/src/lib/aa.ts`). The
+bundler alone does not sponsor gas.
+
+---
+
 ## Read this first: the Robinhood-chain constraint
 
 Verified 2026-07-28 against `https://rpc.testnet.chain.robinhood.com`:
@@ -74,15 +103,17 @@ bundler's estimator is Nitro-aware. The manual UserOp in the proof above used
 ## Wire the keeper to it
 
 The keeper already builds the UserOp (keeper signature + verifying-paymaster sponsor signature)
-and submits it via `eth_sendUserOperation`. Point it at your bundler:
+and submits it via `eth_sendUserOperation`. Alto serves JSON-RPC at the **root path on port 4337**.
+The keeper reads `BUNDLER_URL` from its process env (systemd `EnvironmentFile`, not a loaded
+`.env`), defaulting to `http://localhost:4337`:
 
-```ini
-# keeper/.env
-BUNDLER_URL=http://localhost:3000/rpc     # your bundler's JSON-RPC endpoint
-```
+- **Keeper colocated with the bundler** (the intended deploy, both on the app host): the default
+  `http://localhost:4337` already points at it, so **no override is needed**.
+- **Keeper off-box:** `BUNDLER_URL=https://app.bagsweep.xyz/bundler`.
 
-`keeper/src/relayer.js` assembles the op (see the sign details below); `keeper/src/bundler.js`
-posts it to `BUNDLER_URL`. No code change is needed, only the endpoint.
+Verified 2026-07-30: the keeper's own `checkBundlerHealth()` returns `{ ok: true, chainId: 0xb626 }`
+against the live endpoint. `keeper/src/relayer.js` assembles the op (see the sign details below);
+`keeper/src/bundler.js` posts it to `BUNDLER_URL`. No code change is needed, only the endpoint.
 
 **Signing (already implemented, for reference):**
 - Keeper signs the RAW `entryPoint.getUserOpHash(userOp)` with `wallet.signingKey.sign(...)`

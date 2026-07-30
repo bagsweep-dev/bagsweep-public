@@ -3,6 +3,7 @@
  * Submits signed UserOperations to an ERC-4337 bundler endpoint.
  */
 import { config } from "./config.js";
+import { dataSlice, dataLength } from "ethers";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -105,20 +106,40 @@ async function bundlerRpc(method, params) {
 }
 
 /**
- * Serialize a UserOp for JSON-RPC (convert all fields to hex strings).
+ * Serialize a UserOp for JSON-RPC. The relayer builds the PACKED PackedUserOperation
+ * (the on-chain handleOps struct), but `eth_sendUserOperation` takes the UNPACKED
+ * ERC-4337 v0.7/v0.8 shape, so unpack the composite fields here. The unpacking is the
+ * exact inverse of the relayer's packing, so a bundler re-packing these fields recomputes
+ * the identical userOpHash and both signatures stay valid:
+ *   accountGasLimits = verificationGasLimit(16) ++ callGasLimit(16)
+ *   gasFees          = maxPriorityFeePerGas(16) ++ maxFeePerGas(16)
+ *   initCode         = factory(20) ++ factoryData
+ *   paymasterAndData = paymaster(20) ++ pmVerificationGas(16) ++ pmPostOpGas(16) ++ paymasterData
  */
 function serializeUserOp(op) {
-  return {
+  const qty = (hex) => "0x" + BigInt(hex).toString(16);
+  const out = {
     sender: op.sender,
     nonce: toHex(op.nonce),
-    initCode: op.initCode,
     callData: op.callData,
-    accountGasLimits: op.accountGasLimits,
+    verificationGasLimit: qty(dataSlice(op.accountGasLimits, 0, 16)),
+    callGasLimit: qty(dataSlice(op.accountGasLimits, 16, 32)),
     preVerificationGas: toHex(op.preVerificationGas),
-    gasFees: op.gasFees,
-    paymasterAndData: op.paymasterAndData,
+    maxPriorityFeePerGas: qty(dataSlice(op.gasFees, 0, 16)),
+    maxFeePerGas: qty(dataSlice(op.gasFees, 16, 32)),
     signature: op.signature,
   };
+  if (op.initCode && op.initCode !== "0x" && dataLength(op.initCode) >= 20) {
+    out.factory = dataSlice(op.initCode, 0, 20);
+    out.factoryData = dataLength(op.initCode) > 20 ? dataSlice(op.initCode, 20) : "0x";
+  }
+  if (op.paymasterAndData && op.paymasterAndData !== "0x" && dataLength(op.paymasterAndData) >= 52) {
+    out.paymaster = dataSlice(op.paymasterAndData, 0, 20);
+    out.paymasterVerificationGasLimit = qty(dataSlice(op.paymasterAndData, 20, 36));
+    out.paymasterPostOpGasLimit = qty(dataSlice(op.paymasterAndData, 36, 52));
+    out.paymasterData = dataLength(op.paymasterAndData) > 52 ? dataSlice(op.paymasterAndData, 52) : "0x";
+  }
+  return out;
 }
 
 function toHex(val) {

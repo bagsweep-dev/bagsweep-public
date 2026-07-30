@@ -89,19 +89,10 @@ export const registryAbi = [
   },
 ] as const;
 
-// The BagSweep custom account: exit path is ownerExecute (EOA-signed, no bundler needed).
+// The BagSweep custom account. The owner drives everything through ownerExecute (EOA-signed,
+// no bundler); the keeper's sponsored sweeps run server-side. setSweepExecutor must be set once
+// so the keeper's execute(sweepExecutor, executeSweep) is authorized on-chain.
 export const accountAbi = [
-  {
-    type: "function",
-    name: "execute",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "dest", type: "address" },
-      { name: "value", type: "uint256" },
-      { name: "func", type: "bytes" },
-    ],
-    outputs: [],
-  },
   {
     type: "function",
     name: "ownerExecute",
@@ -109,14 +100,25 @@ export const accountAbi = [
     inputs: [
       { name: "dest", type: "address" },
       { name: "value", type: "uint256" },
-      { name: "func", type: "bytes" },
+      { name: "data", type: "bytes" },
     ],
+    outputs: [{ name: "", type: "bytes" }],
+  },
+  {
+    type: "function",
+    name: "setSweepExecutor",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "_executor", type: "address" }],
     outputs: [],
   },
+  { type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
+  { type: "function", name: "keeper", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
+  { type: "function", name: "sweepExecutor", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
 ] as const;
 
 export const erc20Abi = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint8" }] },
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "string" }] },
+  { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] },
 ] as const;

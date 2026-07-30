@@ -6,29 +6,32 @@ import {
   http,
 } from "viem";
 import { rhChain } from "../config/chains";
-import { ADDR, accountAbi, factoryAbi } from "../config/contracts";
+import { ADDR, factoryAbi, registryAbi, erc20Abi } from "../config/contracts";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ERC-4337 plumbing for the BagSweep custom SmartAccount.
+// Account interaction layer.
 //
-// This is the one non-mechanical piece of the phase-2 UI. permissionless.js gives us
-// the bundler client + gas estimation + the sponsor (paymaster) round-trip; what it does
-// NOT know is how OUR account encodes a batch and how it signs a UserOp. Those two hooks
-// are what the adapter below has to supply. Everything else (getFactoryArgs, getAddress,
-// getNonce against the EntryPoint) is standard and wired here.
+// DESIGN NOTE: the audit-frozen SmartAccount validates the OWNER's UserOp signature as a RAW
+// ECDSA signature over the userOpHash (OZ Account._signableUserOpHash returns the hash
+// unwrapped; SignerECDSA recovers over it directly). A browser wallet cannot produce that
+// (personal_sign adds the EIP-191 prefix, signTypedData is EIP-712, and eth_sign is
+// deprecated/blocked). So the owner does NOT drive gasless UserOps from the browser. Instead:
 //
-// Build + test this against TESTNET first (chain 46630 + a testnet bundler). The read/exit
-// paths (ownerExecute) do not need any of this and work today.
+//   - The OWNER acts via direct EOA transactions: factory.createAccount(owner, salt) to deploy,
+//     then account.ownerExecute(target, 0, <calldata>) for everything else. ownerExecute is the
+//     account's always-available, bundler/paymaster-independent path. Cheap on RH's L2 gas.
+//   - The KEEPER performs the gasless, paymaster-sponsored sweeps server-side (it holds a raw
+//     key and signs the raw userOpHash), submitted through the self-hosted bundler. The browser
+//     never talks to the bundler/paymaster for the MVP.
+//
+// This module provides the reads (address resolution, deployment + policy state) and the
+// calldata builders the owner flows submit via wagmi's useWriteContract. Owner-gasless setup
+// would need EIP-712/ERC-7739 owner-sig support added to the account (a post-audit change).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const publicClient = createPublicClient({ chain: rhChain, transport: http() });
 
-const requireEnv = (v: string, name: string) => {
-  if (!v) throw new Error(`Missing ${name}. Fill it in .env.local (see .env.example).`);
-  return v;
-};
-
-/** Counterfactual smart-account address for an owner (salt defaults to 0). */
+/** Deterministic (CREATE2) smart-account address for an owner; salt defaults to 0. */
 export async function getSmartAccountAddress(owner: Address, salt = 0n): Promise<Address> {
   return publicClient.readContract({
     address: ADDR.factory,
@@ -38,54 +41,56 @@ export async function getSmartAccountAddress(owner: Address, salt = 0n): Promise
   });
 }
 
-/** factory + factoryData for the account's first UserOp (deploy-on-first-use). */
-export function getFactoryArgs(owner: Address, salt = 0n): { factory: Address; factoryData: Hex } {
-  return {
-    factory: ADDR.factory,
-    factoryData: encodeFunctionData({
-      abi: factoryAbi,
-      functionName: "createAccount",
-      args: [owner, salt],
-    }),
-  };
+/** Whether an address has contract code (i.e. the account is deployed). */
+export async function isDeployed(addr: Address): Promise<boolean> {
+  const code = await publicClient.getCode({ address: addr });
+  return !!code && code !== "0x";
 }
 
-/** Encode a single call as the account's execute() calldata (the UserOp callData). */
-export function encodeExecute(to: Address, value: bigint, data: Hex): Hex {
-  return encodeFunctionData({ abi: accountAbi, functionName: "execute", args: [to, value, data] });
+/** The account's configured sweep executor (zero until setSweepExecutor is called). */
+export async function getSweepExecutor(account: Address): Promise<Address> {
+  return publicClient.readContract({ address: account, abi: accountAbiView, functionName: "sweepExecutor" });
 }
 
-// TODO(aa): build the permissionless smart-account client. Sketch:
-//
-//   import { createSmartAccountClient } from "permissionless";
-//   import { createBundlerClient, entryPoint08Address } from "viem/account-abstraction";
-//   import { toSmartAccount } from "viem/account-abstraction";
-//
-//   1. const account = await toSmartAccount({
-//        client: publicClient,
-//        entryPoint: { address: ADDR.entryPoint, version: "0.8" },
-//        getAddress: () => getSmartAccountAddress(owner, salt),
-//        getFactoryArgs: async () => getFactoryArgs(owner, salt),
-//        encodeCalls: (calls) => encodeExecute(calls[0].to, calls[0].value ?? 0n, calls[0].data ?? "0x"),
-//        //  ^ MVP does one call per op; batch = a multicall/executeBatch variant if the account has one.
-//        getNonce: async () => /* EntryPoint.getNonce(account, key) */,
-//        getStubSignature: async () => "0x" /* dummy sig of the right length for gas estimation */,
-//        signUserOperation: async (userOp) => /* sign per SmartAccount.validateUserOp's scheme (EIP-712 or the EntryPoint userOpHash); confirm against the contract */,
-//      });
-//
-//   2. const bundler = createBundlerClient({ client: publicClient, transport: http(requireEnv(import.meta.env.VITE_BUNDLER_URL, "VITE_BUNDLER_URL")) });
-//
-//   3. gasless: attach the verifying paymaster. Our SweepPaymaster is sponsor-signed, so the
-//      client needs a getPaymasterData/getPaymasterStubData that calls VITE_PAYMASTER_URL to
-//      fetch the sponsor signature for the userOp, returning { paymaster: ADDR.paymaster, paymasterData }.
-//
-//   4. return createSmartAccountClient({ account, bundler, chain: rhChain, paymaster });
-//
-// Confirm (2) the userOp hash / signature scheme against SweepAccount.validateUserOp and
-// (3) the SweepPaymaster sponsor payload before trusting a send. Until then, sendUserOp throws.
-export async function getSmartAccountClient(_owner: Address, _salt = 0n): Promise<never> {
-  requireEnv(import.meta.env.VITE_BUNDLER_URL, "VITE_BUNDLER_URL");
-  throw new Error(
-    "AA client not wired yet: implement the toSmartAccount adapter (signUserOperation + paymaster sponsor call). See TODO in src/lib/aa.ts."
-  );
+/** Read the account's active sweep policy from the registry (keyed by the account). */
+export async function getPolicy(account: Address) {
+  return publicClient.readContract({
+    address: ADDR.registry,
+    abi: registryAbi,
+    functionName: "getPolicy",
+    args: [account],
+  });
 }
+
+// ── calldata the account runs via ownerExecute(target, 0, <this>) ──
+
+/** registry.setPolicy(...) — pct/maxSlippageBps in bps, minUsd in 6-dp USDG. */
+export function encodeSetPolicy(p: {
+  pct: number;
+  minUsd: bigint;
+  mode: number;
+  dest: number;
+  tokenWhitelist: Address[];
+  maxSlippageBps: number;
+}): Hex {
+  return encodeFunctionData({
+    abi: registryAbi,
+    functionName: "setPolicy",
+    args: [p.pct, p.minUsd, p.mode, p.dest, p.tokenWhitelist, p.maxSlippageBps],
+  });
+}
+
+/** registry.revokePolicy() — turns the keeper off for this account. */
+export function encodeRevoke(): Hex {
+  return encodeFunctionData({ abi: registryAbi, functionName: "revokePolicy", args: [] });
+}
+
+/** token.transfer(owner, amount) — used to self-exit a position via ownerExecute(token, 0, ...). */
+export function encodeErc20Transfer(to: Address, amount: bigint): Hex {
+  return encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [to, amount] });
+}
+
+// Minimal view ABI (kept local; the writes use accountAbi from contracts.ts via wagmi).
+const accountAbiView = [
+  { type: "function", name: "sweepExecutor", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
+] as const;
