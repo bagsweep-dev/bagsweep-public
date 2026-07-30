@@ -29,12 +29,15 @@ const stats = {
  * keeper wants. (audit P-1)
  */
 function loop(name, fn, intervalMs, initialDelayMs = 0) {
+  // NOTE: do NOT unref these timers. The keeper is a daemon with no listening socket, so the
+  // loop timers are the only thing keeping the event loop alive; unref'ing them makes the
+  // process exit right after main() (systemd would then restart-loop it).
   const tick = async () => {
     try { await fn(); }
     catch (e) { console.error(`[${name}] cycle error:`, e.message); }
-    setTimeout(tick, intervalMs).unref?.();
+    setTimeout(tick, intervalMs);
   };
-  setTimeout(tick, initialDelayMs).unref?.();
+  setTimeout(tick, initialDelayMs);
 }
 
 /**
