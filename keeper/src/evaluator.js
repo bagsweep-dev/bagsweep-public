@@ -8,6 +8,12 @@ import { config } from "./config.js";
 import { getProvider, getActivePolicies, isOnCooldown } from "./monitor.js";
 import { selectBestRoute, usdgForStockLeg, quoteStockLeg, profitCappedAmount, encodeV3Path, auditFeeTier } from "./router.js";
 import { rhPnl } from "../../lib/rh.js";
+import { pool } from "../../lib/util.js";
+
+// Distinct accounts evaluate independently, so run them with bounded concurrency instead of
+// serially. Cap it to the RPC rate budget, not full fan-out (that would stampede the RPC and
+// DexScreener). (audit P-2)
+const EVAL_CONCURRENCY = 5;
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -47,25 +53,20 @@ export async function evaluateAll() {
     console.warn("[evaluator] mainnet (chain 4663) requires a V3 Quoter (set QUOTER_ADDR); refusing to route on a DexScreener-only floor — skipping");
     return [];
   }
-  const policies = getActivePolicies();
   const provider = getProvider();
-  const plans = [];
+  // Pre-filter cooldown before spending any RPC, then evaluate the rest concurrently.
+  const entries = [...getActivePolicies()].filter(([account]) => !isOnCooldown(account));
 
-  for (const [account, { policy }] of policies) {
-    // Skip accounts on cooldown
-    if (isOnCooldown(account)) continue;
-
+  const plans = await pool(entries, async ([account, { policy }]) => {
     try {
-      const plan = await evaluateAccount(account, policy, provider);
-      if (plan) {
-        plans.push(plan);
-      }
+      return await evaluateAccount(account, policy, provider);
     } catch (err) {
       console.error(`[evaluator] Error evaluating ${account}:`, err.message);
+      return null;
     }
-  }
+  }, EVAL_CONCURRENCY);
 
-  return plans;
+  return plans.filter(Boolean);
 }
 
 /**
@@ -230,7 +231,9 @@ async function getTokenPriceUsd(tokenAddr) {
 
   try {
     const url = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddr}`;
-    const res = await fetch(url);
+    // Bound a hung upstream: on abort the catch returns null, so the token is simply skipped
+    // this cycle (the fail-safe default already exists). (audit P-8)
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     const data = await res.json();
 
     if (data.pairs && data.pairs.length > 0) {

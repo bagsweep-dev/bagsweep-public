@@ -23,10 +23,25 @@ Canonical mainnet addresses used below:
 The buyback routes USDG -> WETH -> $REAP; the adapter needs the exact tier for each hop.
 ```bash
 # USDG/WETH pool + fee, and WETH/$REAP pool + fee, from the canonical V3 factory 0x1f7d7550...
-cast call 0x1f7d7550b1b028f7571e69a784071f0205fd2efa "getPool(address,address,uint24)(address)" <USDG> <WETH> 500
+cast call 0x1f7d7550b1b028f7571e69a784071f0205fd2efa "getPool(address,address,uint24)(address)" <USDG> <WETH> <tier>
 cast call <poolAddr> "fee()(uint24)"
 ```
-Record `FEE_USDG_WETH` and `FEE_WETH_REAP`. (The `$REAP/WETH` pool is the Pons-created V3 pool; read its `fee()`.)
+Record `FEE_USDG_WETH` and `FEE_WETH_REAP`.
+
+**Verified on-chain 2026-07-29 ($REAP is a V3 token, not V4).** $REAP trades in a live Uniswap
+**V3** pool, REAP/WETH at the **1% (10000) tier**, pool `0xa8e95ddca643d0a4a6d695912e65b172e8f96e03`
+(initialized, has liquidity). There is no REAP/USDG pool and no REAP/WETH pool at the 500 or 3000
+tiers, so `FEE_WETH_REAP` **must be `10000`** — a default of 500/3000 would point `feeFor` at a
+non-existent pool and the buyback would skip forever. USDG/WETH exists at all three tiers (pick the
+deepest, historically the 500 tier). The V3 Quoter + `SweepRouterV3Adapter` see this pool fine; the
+shipped `SweepRouterV4Adapter` is not needed for $REAP (keep it for future launchpad tokens that
+graduate to a V4 pool).
+
+⚠ **Thin pool caveat.** At graduation the REAP/WETH pool holds only ~0.02 WETH of depth, so any
+non-trivial buyback swap blows past the slippage floor and the pre-submit simulation reverts, so the
+keeper correctly **skips**. This is the slippage guard working, not a routing bug: the burn will
+legitimately no-op until the pool deepens. Set `maxSpendBps` conservatively and expect early
+`[buyback] simulation reverted` skips; do not "fix" them by widening slippage.
 
 ## 2. Deploy
 ```bash

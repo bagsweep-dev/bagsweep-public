@@ -5,6 +5,7 @@
  */
 import { ethers } from "ethers";
 import { config } from "./config.js";
+import { pool } from "../../lib/util.js";
 
 // ── ABIs (minimal, only what we need) ──
 
@@ -49,15 +50,18 @@ export async function backfillPolicies() {
     const activeAccounts = await registry.getActiveAccounts();
     console.log(`[monitor] Found ${activeAccounts.length} accounts with policies`);
 
-    for (const account of activeAccounts) {
-      const policy = await registry.getPolicy(account);
-      if (policy.active) {
+    // Fetch policies with bounded concurrency instead of one serial round trip each; a single
+    // failed read degrades to null (that account is skipped) rather than aborting the backfill. (audit P-4)
+    const policies = await pool(activeAccounts, (account) => registry.getPolicy(account), 25);
+    activeAccounts.forEach((account, i) => {
+      const policy = policies[i];
+      if (policy && policy.active) {
         activePolicies.set(account, {
           policy: normalizePolicy(policy),
           lastSweepTs: 0,
         });
       }
-    }
+    });
     console.log(`[monitor] Tracking ${activePolicies.size} active policies`);
   } catch (err) {
     console.error("[monitor] Backfill failed:", err.message);

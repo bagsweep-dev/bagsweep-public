@@ -16,7 +16,7 @@ const DATA_DIR = path.join(__dirname, "data");
 const SIGNALS = path.join(DATA_DIR, "signals.jsonl");
 const PUBLIC = path.join(__dirname, "public");
 
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8" };
 
 const SEC_HEADERS = {
   "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
@@ -30,16 +30,47 @@ const SEC_HEADERS = {
 const pnlCache = new TTLCache();
 const pfCache = new TTLCache();
 
+// Static assets are a tiny fixed set; read them into memory once at boot so the request path
+// does zero synchronous fs work. Lookups are exact-key against this map (no path.join on user
+// input), so directory traversal is impossible. A restart picks up changed assets. (audit P-5)
+const staticCache = new Map(); // "/path" -> { body, type }
+function loadStatic(dir = PUBLIC, base = "") {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rel = base + "/" + entry.name;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) loadStatic(full, rel);
+    else if (entry.isFile()) staticCache.set(rel, { body: fs.readFileSync(full), type: MIME[path.extname(full)] || "application/octet-stream" });
+  }
+}
+try { loadStatic(); } catch (e) { console.error("[static] load failed:", e.message); }
+
 // The app sits behind nginx on the VPS. Only honor X-Forwarded-For when explicitly told
 // we're behind a trusted proxy (systemd sets TRUST_PROXY=1); otherwise a caller reaching
 // the Node port directly could spoof the header and bypass the per-IP rate limits. (v2 audit M-2)
 const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 
-// /api/signals tally cache: tallySignals() re-reads and JSON.parses the whole append-only
-// signals file per request, so cache the result briefly and invalidate on write to stop a
-// read-amplification loop. (v2 audit M-3)
-let signalsTallyCache = null; // { data, ts }
-const SIGNALS_TALLY_TTL = 15_000;
+// Running /api/signals tally: seed once from disk at boot, then update in memory on each write.
+// Reads are O(1) and the append-only file is scanned only at boot, not per request, so file
+// growth no longer drives read latency. Supersedes the earlier re-read-and-cache. (audit P-6)
+// (byWallet grows with unique wallets; negligible at phase-1 scale, bound or snapshot later.)
+const tally = { yes: 0, no: 0, byWallet: new Map(), raw: 0 };
+function applySignal(s) {
+  const key = s.address ? `${s.chain}:${s.address}` : `anon:${tally.raw}`;
+  const prev = tally.byWallet.get(key);
+  if (prev !== undefined) { prev ? tally.yes-- : tally.no--; } // one vote per wallet, latest wins
+  tally.byWallet.set(key, !!s.wouldAuthorize);
+  s.wouldAuthorize ? tally.yes++ : tally.no++;
+  tally.raw++;
+}
+const signalTally = () => ({ yes: tally.yes, no: tally.no, uniqueWallets: tally.byWallet.size, rawResponses: tally.raw });
+async function seedTally() {
+  try {
+    const content = await fs.promises.readFile(SIGNALS, "utf8");
+    for (const line of content.trim().split("\n").filter(Boolean)) {
+      try { applySignal(JSON.parse(line)); } catch { /* skip bad line */ }
+    }
+  } catch { /* no file yet */ }
+}
 
 // per-IP token buckets
 const buckets = new Map();
@@ -112,29 +143,9 @@ function readBody(req) {
   });
 }
 
-async function tallySignals() {
-  const all = [];
-  try {
-    const content = await fs.promises.readFile(SIGNALS, "utf8");
-    const lines = content.trim().split("\n").filter(Boolean);
-    for (const line of lines) {
-      try { all.push(JSON.parse(line)); } catch { /* skip bad line */ }
-    }
-  } catch { /* no file yet */ }
-  // one vote per wallet, latest answer wins; addressless records keep their own slot
-  const byWallet = new Map();
-  all.forEach((s, i) => byWallet.set(s.address ? `${s.chain}:${s.address}` : `anon:${i}`, s));
-  let yes = 0, no = 0;
-  for (const s of byWallet.values()) s.wouldAuthorize ? yes++ : no++;
-  return { yes, no, uniqueWallets: byWallet.size, rawResponses: all.length, last10: all.slice(-10) };
-}
-
-async function tallySignalsCached() {
-  if (signalsTallyCache && Date.now() - signalsTallyCache.ts < SIGNALS_TALLY_TTL) return signalsTallyCache.data;
-  const data = await tallySignals();
-  signalsTallyCache = { data, ts: Date.now() };
-  return data;
-}
+// Public tally exposes aggregate counts only. Raw per-response records (wallet address +
+// free-text note) are never returned: that would be public wallet/intent enumeration and
+// breaks the site's data-minimization promise. (security scan 2026-07-29)
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -176,22 +187,20 @@ const server = http.createServer(async (req, res) => {
       };
       await fs.promises.mkdir(DATA_DIR, { recursive: true });
       await fs.promises.appendFile(SIGNALS, JSON.stringify(record) + "\n");
-      signalsTallyCache = null; // invalidate the read cache on write (v2 audit M-3)
+      applySignal(record); // update the running in-memory tally (audit P-6)
       return send(res, 200, { ok: true });
     }
     if (url.pathname === "/api/signals" && req.method === "GET") {
       if (!allow(clientIp(req) + ":sigr", 30)) return send(res, 429, { error: "Rate limit." });
-      return send(res, 200, await tallySignalsCached());
+      return send(res, 200, signalTally());
     }
 
-    // static
-    let file = url.pathname === "/" ? "/index.html" : url.pathname;
-    const full = path.join(PUBLIC, path.normalize(file));
-    if (!full.startsWith(PUBLIC + path.sep)) return send(res, 403, { error: "forbidden" });
-    if (fs.existsSync(full) && fs.statSync(full).isFile()) {
-      const ext = path.extname(full);
-      res.writeHead(200, { ...SEC_HEADERS, "content-type": MIME[ext] || "application/octet-stream", "cache-control": "public, max-age=300" });
-      return res.end(fs.readFileSync(full));
+    // static (served from the boot-time in-memory cache; no request-path fs, no traversal surface)
+    const key = url.pathname === "/" ? "/index.html" : url.pathname;
+    const hit = staticCache.get(key);
+    if (hit) {
+      res.writeHead(200, { ...SEC_HEADERS, "content-type": hit.type, "cache-control": "public, max-age=300" });
+      return res.end(hit.body);
     }
     return send(res, 404, { error: "not found" });
   } catch (e) {
@@ -205,4 +214,5 @@ const server = http.createServer(async (req, res) => {
 // Behind nginx (TRUST_PROXY=1) bind loopback so the Node port is never directly reachable;
 // in local dev bind all interfaces. (v2 audit M-2)
 const HOST = TRUST_PROXY ? "127.0.0.1" : undefined;
+await seedTally(); // seed the running signal tally from disk before accepting requests (audit P-6)
 server.listen(PORT, HOST, () => console.log(`BagSweep phase 1 listening on http://${HOST || "localhost"}:${PORT}`));

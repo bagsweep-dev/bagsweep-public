@@ -4,6 +4,10 @@ const fmtUsd = (v, d) => v === null || v === undefined || isNaN(v) ? '<span clas
 const fmtAmt = (v) => v === null || v === undefined ? '?' : v >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : v >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : v.toLocaleString(undefined, { maximumFractionDigits: 4 });
 const cls = (v) => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
 const clip = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
+// Escape anything attacker-controlled before it goes into innerHTML. Token symbols/ids come
+// from on-chain symbol()/addresses, so a dusted token can carry markup; the server CSP blocks
+// script execution, this neutralizes markup injection at the sink too. (audit S-2)
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let portfolio = null, pnl = null;
 
@@ -75,7 +79,7 @@ function rowHtml(pos) {
     '<td class="num pnl-col ' + (pnlPos && pnlPos.unrealizedUsd !== null ? cls(pnlPos.unrealizedUsd) : '') + '">' +
       (pnlPos ? (pnlPos.unrealizedUsd === null ? '<span class="dim">no basis</span>' : fmtUsd(pnlPos.unrealizedUsd)) : '<span class="dim">·</span>') + '</td>'
   ) : '<td class="num pnl-col hidden"></td>'.repeat(3);
-  return '<tr><td class="sym" title="' + pos.id + '">' + clip(pos.symbol, 14) + '</td>' +
+  return '<tr><td class="sym" title="' + esc(pos.id) + '">' + clip(esc(pos.symbol), 14) + '</td>' +
     '<td><span class="badge b-' + pos.class + '">' + pos.class + '</span></td>' +
     '<td class="num">' + fmtAmt(pos.amount) + '</td>' +
     '<td class="num">' + (pos.priceUsd === null ? '<span class="dim">no price</span>' : fmtUsd(pos.priceUsd, pos.priceUsd < 0.01 ? 6 : 2)) + '</td>' +
