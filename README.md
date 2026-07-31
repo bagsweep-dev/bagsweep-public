@@ -54,7 +54,7 @@ $REAP captures protocol revenue through an **enforced** buy-and-burn: a share of
 
 Holding $REAP also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $REAP or not.
 
-**Live on Robinhood Chain.** The one official $REAP contract is `0xD36F5744a655bD786993574b94bbf11B6B126FFa` (fair launch via Pons, 1B fixed supply, ownerless, verified). Any other contract calling itself $REAP is an impersonator.
+**Not yet live.** The official $REAP contract address will be published here at launch. Until then, any token calling itself $REAP is not ours.
 
 ## Phase-1 tracker
 
