@@ -144,13 +144,13 @@ contract SweepPolicyRegistry is ISweepPolicy, Ownable {
 
     /// @inheritdoc ISweepPolicy
     function getActiveAccounts() external view override returns (address[] memory) {
-        uint256 active;
+        uint256 active = 0;
         for (uint256 i = 0; i < _allAccounts.length; i++) {
             if (_policies[_allAccounts[i]].active) active++;
         }
 
         address[] memory result = new address[](active);
-        uint256 j;
+        uint256 j = 0;
         for (uint256 i = 0; i < _allAccounts.length; i++) {
             if (_policies[_allAccounts[i]].active) {
                 result[j++] = _allAccounts[i];

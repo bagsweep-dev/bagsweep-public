@@ -6,6 +6,8 @@ import { config, validateConfig } from "./config.js";
 import { initMonitor, backfillPolicies, pollEvents, markSwept } from "./monitor.js";
 import { evaluateAll, getEvaluatorStats, auditRouteFees } from "./evaluator.js";
 import { initRelayer, buildUserOp, getKeeperAddress } from "./relayer.js";
+import { initEntitlement, getGateStats } from "./entitlement.js";
+import { refreshGatePrice } from "./gate-price.js";
 import { submitUserOp, waitForUserOp, checkBundlerHealth } from "./bundler.js";
 import { runBuyback } from "./buyback.js";
 
@@ -17,6 +19,7 @@ const stats = {
   sweepsAttempted: 0,
   sweepsSucceeded: 0,
   sweepsFailed:    0,
+  sweepsSkippedGate: 0,
   lastPollTs:      0,
   lastEvalTs:      0,
   lastSweepTs:     0,
@@ -74,6 +77,12 @@ async function main() {
   // Relayer needs the monitor's provider
   const { getProvider } = await import("./monitor.js");
   initRelayer(getProvider());
+  initEntitlement(getProvider());
+
+  // Prime the dollar-peg price before the first eval (no-op unless the gate is on + not fixed).
+  if (config.gate.enabled && config.gate.mode !== "fixed") {
+    try { await refreshGatePrice(); } catch {}
+  }
 
   // Check bundler health
   const health = await checkBundlerHealth();
@@ -112,6 +121,12 @@ async function main() {
     loop("buyback", runBuyback, config.buybackIntervalMs, 12000);
     console.log(`[boot] Buyback job enabled (every ${config.buybackIntervalMs}ms, cooldown-gated)`);
   }
+
+  // $REAP gate price refresh (dollar-peg). Off unless the gate is on and not forced fixed.
+  if (config.gate.enabled && config.gate.mode !== "fixed") {
+    loop("gateprice", refreshGatePrice, config.gate.refreshMs, 3000);
+    console.log(`[boot] Gate price refresh enabled (every ${config.gate.refreshMs}ms, mode=${config.gate.mode})`);
+  }
 }
 
 /**
@@ -139,11 +154,18 @@ async function runEvalCycle() {
   // EntryPoint nonce, not a shared keeper-EOA nonce. (audit P-3)
   const submitted = [];
   for (const plan of plans) {
-    console.log(`[eval] Sweep: ${plan.account}, ${plan.swaps.length} token(s), ~$${plan.estimatedOutputUsd.toFixed(2)} est. output`);
-    stats.sweepsAttempted++;
-    stats.lastSweepTs = Date.now();
     try {
       const userOp = await buildUserOp(plan);
+      if (!userOp) {
+        // Demand gate: owner not $REAP-entitled. A skip, not a failure — the account
+        // keeps its ungated self-exit (ownerExecute); the keeper just doesn't automate it.
+        stats.sweepsSkippedGate++;
+        console.log(`[sweep] Skipped ${plan.account}: owner not $REAP-entitled (free tier keeps the self-serve exit)`);
+        continue;
+      }
+      console.log(`[eval] Sweep: ${plan.account}, ${plan.swaps.length} token(s), ~$${plan.estimatedOutputUsd.toFixed(2)} est. output`);
+      stats.sweepsAttempted++;
+      stats.lastSweepTs = Date.now();
       const opHash = await submitUserOp(userOp);
       if (opHash) {
         console.log(`[sweep] UserOp hash: ${opHash}`);
@@ -184,6 +206,7 @@ export function getStats() {
     ...stats,
     keeper: getKeeperAddress(),
     evaluator: getEvaluatorStats(),
+    gate: getGateStats(),
   };
 }
 

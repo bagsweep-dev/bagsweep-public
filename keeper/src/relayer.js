@@ -5,6 +5,7 @@
  */
 import { ethers } from "ethers";
 import { config } from "./config.js";
+import { isEntitled } from "./entitlement.js";
 
 const EXECUTOR_ABI = [
   "function executeSweep(tuple(address tokenIn, uint256 amountIn, uint256 spotQuote, address router, bytes swapData)[] swaps, uint8 dest, address stockTarget, uint256 stockSpotQuote)",
@@ -54,6 +55,16 @@ export function initRelayer(provider) {
  */
 export async function buildUserOp(plan) {
   const { account, swaps, dest, stockTarget, stockSpotQuote } = plan;
+  const provider = keeperWallet.provider;
+
+  // $REAP demand gate. With a paymaster configured, the keeper sponsors (and therefore
+  // submits) a gasless sweep ONLY for a $REAP-entitled owner. A non-entitled account is
+  // denied NOTHING on-chain — it keeps the ungated self-exit (SmartAccount.ownerExecute)
+  // — the keeper simply does not automate a gasless sweep for it. Returns null so the
+  // caller skips it (a skip, not a failure). Gate off => isEntitled() is always true.
+  if (config.paymaster && sponsorWallet && !(await isEntitled(account, provider, plan.ownerAddr))) {
+    return null;
+  }
 
   // 1. Encode the SweepExecutor.executeSweep call
   const executorIface = new ethers.Interface(EXECUTOR_ABI);
@@ -82,7 +93,6 @@ export async function buildUserOp(plan) {
   //    signing a doomed op (nonce 0 + empty initCode just reverts at the EntryPoint).
   //    If the plan carries the account's {ownerAddr, salt}, deploy it on the first
   //    sweep via initCode (counterfactual flow).
-  const provider = keeperWallet.provider;
   const smartAccount = new ethers.Contract(account, SMART_ACCOUNT_ABI, provider);
   let nonce = 0n;
   let initCode = "0x";

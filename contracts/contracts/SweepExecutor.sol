@@ -87,6 +87,7 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     error UnsafeSwapData();
     error SweepsPaused();
     error SweepCooldown();
+    error ZeroAddress();
 
     /// @notice Emitted for every fee skim, so each fee is a verifiable chain read.
     event FeeCollected(address indexed account, uint256 usdgFee, uint256 feeBps, uint256 timestamp);
@@ -106,6 +107,9 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
         address _registry,
         address initialOwner
     ) Ownable(initialOwner) {
+        // USDG and registry are immutable: a zero here would permanently brick the
+        // executor (every balanceOf/getPolicy call reverts) with no recovery path.
+        if (_usdg == address(0) || _registry == address(0)) revert ZeroAddress();
         USDG = _usdg;
         registry = SweepPolicyRegistry(_registry);
     }
@@ -146,7 +150,7 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
             if (!sanctionedStock[stockTarget]) revert StockNotSanctioned();
         }
 
-        uint256 totalUsdgReceived;
+        uint256 totalUsdgReceived = 0;
 
         for (uint256 i = 0; i < swaps.length; i++) {
             SwapParams calldata s = swaps[i];

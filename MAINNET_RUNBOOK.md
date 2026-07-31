@@ -97,10 +97,20 @@ QUOTER_ADDR=0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7
 BUYBACK_ADDR=<buyback>
 SWEEP_HUBS=["0x0bd7d308f8e1639fab988df18a8011f41eacad73"]   # aeWETH, for the multi-hop route
 BUYBACK_ENABLED=1
+
+# $REAP demand gate — OFF by default (unset = every sweep sponsored, as today).
+# GATE_ENABLED=1
+# REAP_ADDR=0xD36F5744a655bD786993574b94bbf11B6B126FFa
+# REAP_MIN_HOLD=250000     # whole $REAP the account OWNER must hold to get GASLESS keeper sweeps (bootstrap fixed-count)
+# GATE_FAIL_OPEN=1         # on a balance-read error, sponsor anyway (default; set 0 to fail closed)
 ```
 `systemctl start bagsweep-keeper` then confirm it reads state and logs `skip: ...` cleanly
 (no revert). It is cap/cooldown-aware and simulates every tx, so a misconfig degrades to a
 skip, not a bad send.
+
+The gate never touches on-chain safety: a non-entitled account keeps `ownerExecute` and
+self-custody; the keeper just doesn't sponsor its gas. Flip it on only after $REAP has real
+liquidity + the copy is ready.
 
 ## 5. Canary (fees still OFF)
 - **Sweep:** from a throwaway smart account with a tiny meme position, author a policy and let

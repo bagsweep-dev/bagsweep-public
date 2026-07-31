@@ -76,6 +76,33 @@ export const config = {
   buybackSlippageBps: parseInt(process.env.BUYBACK_SLIPPAGE_BPS || "300"),    // 3%
   minBuybackUsd6:     BigInt(Math.floor(parseFloat(process.env.MIN_BUYBACK_USD || "10") * 1e6)), // min USDG (6dp) to bother
 
+  // ── $REAP demand gate (off-chain sponsor entitlement) ──
+  // OFF by default (GATE_ENABLED unset => all keeper sweeps sponsored, current behaviour).
+  // When ON, the paymaster sponsor-signer sponsors a gasless sweep ONLY if the account's
+  // OWNER holds >= `minHold` $REAP. A non-entitled account is denied NOTHING on-chain: it
+  // keeps the ungated self-exit (SmartAccount.ownerExecute); the keeper just does not
+  // automate a gasless sweep for it. Bootstrap uses a FIXED whole-token threshold (the
+  // REAP/WETH pool is too thin to price a dollar-peg yet); the smoothed-price peg +
+  // retention snapshot land later.
+  gate: {
+    enabled:    process.env.GATE_ENABLED === "1",
+    reap:       process.env.REAP_ADDR || deployed.reap || "",
+    minHold: (() => {
+      if (process.env.REAP_MIN_HOLD_WEI) return BigInt(process.env.REAP_MIN_HOLD_WEI);
+      return BigInt(process.env.REAP_MIN_HOLD || "0") * (10n ** 18n); // whole-token threshold -> wei
+    })(),
+    cacheTtlMs: parseInt(process.env.GATE_CACHE_TTL_MS || "60000"),   // per-account entitlement cache
+    failOpen:   process.env.GATE_FAIL_OPEN !== "0",  // on a balance-read error, sponsor anyway (don't deny a paying user)
+    // ── phase 2: dollar-peg entry + token-hold retention ──
+    mode:           process.env.GATE_MODE || "auto",                 // auto | fixed | peg  (auto = liquidity floor decides)
+    targetUsd:      parseFloat(process.env.GATE_TARGET_USD || "25"),
+    liqFloorUsd:    parseFloat(process.env.GATE_LIQ_FLOOR_USD || "8000"),
+    priceWindowMin: parseInt(process.env.GATE_PRICE_WINDOW_MIN || "60"),
+    priceSamples:   parseInt(process.env.GATE_PRICE_SAMPLES || "12"),
+    refreshMs:      parseInt(process.env.GATE_PRICE_REFRESH_MS || "300000"), // 5 min price refresh
+    storePath:      process.env.GATE_STORE_PATH || join(__dirname, "..", "entitlements.json"),
+  },
+
   // ── Thresholds ──
   minSweepUsd:       parseFloat(process.env.MIN_SWEEP_USD     || "5"),       // $5 min sweep
   maxSlippageBps:    parseInt(process.env.MAX_SLIPPAGE_BPS    || "300"),     // 3%
