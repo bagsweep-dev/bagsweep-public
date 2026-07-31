@@ -50,7 +50,9 @@ Secrets live in gitignored `.env` files (`contracts/.env`, `keeper/.env`). Never
 
 ## The token: $REAP
 
-$REAP captures protocol revenue through an **enforced** buy-and-burn: a share of the harvest fee buys $REAP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. No staking, no lockups, no access gates. More usage means more burn.
+$REAP captures protocol revenue through an **enforced** buy-and-burn: a share of the harvest fee buys $REAP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. More usage means more burn.
+
+Holding $REAP also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $REAP or not.
 
 **Live on Robinhood Chain.** The one official $REAP contract is `0xD36F5744a655bD786993574b94bbf11B6B126FFa` (fair launch via Pons, 1B fixed supply, ownerless, verified). Any other contract calling itself $REAP is an impersonator.
 
