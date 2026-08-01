@@ -1,0 +1,17 @@
+{
+  "fuzzing": {
+    "workers": 6,
+    "testLimit": 20000,
+    "callSequenceLength": 64,
+    "corpusDirectory": "audits/deep/medusa-corpus",
+    "targetContracts": ["SweepExecutorNoTheftTest", "SweepBuybackNoExitTest", "SweepPolicyRegistryControlTest"],
+    "testChainConfig": { "codeSizeCheckDisabled": true },
+    "assertionTesting": { "enabled": true, "panicCodeConfig": { "failOnAssertion": true } },
+    "propertyTesting": { "enabled": true, "testPrefixes": ["invariant_"] },
+    "testViewMethods": true
+  },
+  "compilation": {
+    "platform": "crytic-compile",
+    "platformConfig": { "target": ".", "solcVersion": "", "exportDirectory": "", "args": ["--foundry-out-directory", "forge-out"] }
+  }
+}

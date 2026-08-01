@@ -1,0 +1,34 @@
+{
+  "note": "Committed baseline of security-critical on-chain state. Re-snapshot is a REVIEWED act (visible in the diff). CI/cron `check` pages on any drift from this.",
+  "network": "robinhood-testnet",
+  "chainId": "46630",
+  "rpc": "https://rpc.testnet.chain.robinhood.com",
+  "addresses": {
+    "executor": "0x7d1c9702860d506593D5b473d9082db9f2f44ceb",
+    "paymaster": "0xc10A1585A7016fC8B0C2a809C4699467eBA1E642",
+    "registry": "0x61dC8e8ac0E9d442fb402f9e2aCdf61691e586E5",
+    "factory": "0x71f80182F16bA3A0a718B42B7B3EdFa7F40fA6fb"
+  },
+  "values": {
+    "executor.owner": "0x2fE073461110025e7ab3852e96a97f118E3F67be",
+    "executor.USDG": "0xDeFb1C0362229A59e3383d512cf462760b868fA7",
+    "executor.yieldPool": "0x0000000000000000000000000000000000000000",
+    "executor.stockRouter": "0x0000000000000000000000000000000000000000",
+    "executor.treasury": "0x0000000000000000000000000000000000000000",
+    "executor.feeBps": "0",
+    "executor.minSweepInterval": "60",
+    "paymaster.owner": "0x2fE073461110025e7ab3852e96a97f118E3F67be",
+    "paymaster.sponsorSigner": "0x2fE073461110025e7ab3852e96a97f118E3F67be",
+    "paymaster.maxCostPerOp": "10000000000000000",
+    "paymaster.getDeposit": "4550376400000000",
+    "registry.owner": "0x2fE073461110025e7ab3852e96a97f118E3F67be",
+    "registry.paused": "false",
+    "factory.owner": "0x2fE073461110025e7ab3852e96a97f118E3F67be",
+    "factory.pendingOwner": "0x0000000000000000000000000000000000000000"
+  },
+  "unreadable": [
+    "executor.pendingOwner",
+    "paymaster.pendingOwner",
+    "registry.pendingOwner"
+  ]
+}

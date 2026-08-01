@@ -1,0 +1,9 @@
+audits/static/slither-report.json
+forge-out/
+forge-cache/
+# Vendored Foundry std lib — install locally, don't commit (see audits/README.md).
+forge-lib/
+# Deep-scan tool artifacts (generated locally / in Counterscarp Docker).
+audits/deep/*-corpus/
+audits/deep/aderyn-report.md
+audits/deep/medusa-*.json

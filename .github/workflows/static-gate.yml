@@ -1,0 +1,30 @@
+# Static-analysis gate: fails the build on any Slither finding not in the reviewed
+# baseline (contracts/audits/static/slither-baseline.json). A scanner nobody is forced
+# to read is not a control.
+name: static-gate
+on:
+  push:
+    paths: ["contracts/**"]
+  pull_request:
+    paths: ["contracts/**"]
+jobs:
+  slither:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: npm ci
+      - run: pip install slither-analyzer
+      # Slither exits non-zero when it finds anything; the gate (next step) decides pass/fail.
+      - name: Run Slither
+        run: >
+          slither . --json audits/static/slither-report.json
+          --filter-paths "node_modules|contracts/testnet|forge-lib|lib/" || true
+      - name: Gate on new untriaged findings
+        run: node audits/static/slither-gate.mjs check audits/static/slither-report.json

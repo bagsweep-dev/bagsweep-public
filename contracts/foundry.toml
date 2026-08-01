@@ -1,0 +1,25 @@
+# Foundry harness for the BagSweep in-house audit (invariant + mutation), alongside Hardhat.
+# Hardhat keeps compiling to artifacts/ + cache/; Foundry uses forge-out/ + forge-cache/.
+[profile.default]
+src = "contracts"
+out = "forge-out"
+test = "audits/invariant"
+libs = ["forge-lib", "node_modules"]
+cache_path = "forge-cache"
+solc = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+remappings = [
+  "@openzeppelin/=node_modules/@openzeppelin/",
+  "@account-abstraction/=node_modules/@account-abstraction/",
+  "@uniswap/=node_modules/@uniswap/",
+  "forge-std/=forge-lib/forge-std/src/",
+]
+fs_permissions = [{ access = "read", path = "./" }]
+
+[invariant]
+runs = 256
+depth = 64
+fail_on_revert = false

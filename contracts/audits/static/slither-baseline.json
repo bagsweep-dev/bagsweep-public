@@ -1,0 +1,452 @@
+{
+  "tool": "slither",
+  "generated_from": "slither-report.json",
+  "count": 74,
+  "note": "Accepted, human-reviewed findings (reviewed pre-audit set, kept private). CI fails on any finding not listed here.",
+  "accepted": [
+    {
+      "fp": "42c801f6e0199673",
+      "check": "arbitrary-send-eth",
+      "impact": "High",
+      "where": "contracts/SmartAccount.sol:execute"
+    },
+    {
+      "fp": "83cec9e0cf6d9077",
+      "check": "arbitrary-send-eth",
+      "impact": "High",
+      "where": "contracts/SmartAccount.sol:executeBatch"
+    },
+    {
+      "fp": "30541c58c73ca88e",
+      "check": "assembly",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:_bubble"
+    },
+    {
+      "fp": "446821a31ec27a53",
+      "check": "assembly",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_extractRevertReason"
+    },
+    {
+      "fp": "f7ff5e89ecf3e054",
+      "check": "assembly",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:_isAllowedKeeperCall"
+    },
+    {
+      "fp": "0d64fc95e8eacf0b",
+      "check": "cache-array-length",
+      "impact": "Optimization",
+      "where": "contracts/SweepPolicyRegistry.sol:i_scope_0 < _allAccounts.length"
+    },
+    {
+      "fp": "16f8f21481adc530",
+      "check": "cache-array-length",
+      "impact": "Optimization",
+      "where": "contracts/SweepPolicyRegistry.sol:i < _allAccounts.length"
+    },
+    {
+      "fp": "5a026a7957f2a529",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "1242c76167f9bb9e",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepRouterV4Adapter.sol:_swapSingle"
+    },
+    {
+      "fp": "00b6638b57861966",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepRouterV4Adapter.sol:_swapSingle"
+    },
+    {
+      "fp": "bd6f3e494cdc4d6a",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "b26edcf127b57e08",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepRouterV4Adapter.sol:_swapSingle"
+    },
+    {
+      "fp": "0bf8e4985ac46565",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SmartAccount.sol:ownerExecuteBatch"
+    },
+    {
+      "fp": "de554d7919b78f2a",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SmartAccount.sol:executeBatch"
+    },
+    {
+      "fp": "eed7af064efbbcc7",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "1642b43da7531cda",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "56987f6a488a4541",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "28971ce78d3f5742",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "28391fb87db749fa",
+      "check": "calls-loop",
+      "impact": "Low",
+      "where": "contracts/SweepRouterV4Adapter.sol:_swapSingle"
+    },
+    {
+      "fp": "e2943ed9ca9881d7",
+      "check": "cyclomatic-complexity",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "58b66d46b239de56",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:ownerExecuteBatch"
+    },
+    {
+      "fp": "3a7136e8673772f9",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_swapToStock"
+    },
+    {
+      "fp": "cf6eaefacaf35dc7",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "e39b7251b3743333",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:execute"
+    },
+    {
+      "fp": "2ee6a390b0c0ee64",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:executeBatch"
+    },
+    {
+      "fp": "21544f2d46eb5c28",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:ownerExecute"
+    },
+    {
+      "fp": "155714cb940358ee",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_depositOrTransfer"
+    },
+    {
+      "fp": "dcecfb1e3167d218",
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:buybackAndBurn"
+    },
+    {
+      "fp": "528424efc8b9ec11",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SmartAccount.sol:_executor"
+    },
+    {
+      "fp": "e6eccd4111731ca4",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:_treasury"
+    },
+    {
+      "fp": "9ebe32849e56f66c",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SmartAccount.sol:dest"
+    },
+    {
+      "fp": "0878abb9c89cc8e9",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SmartAccount.sol:_owner"
+    },
+    {
+      "fp": "0a18117c5443ac4b",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:_router"
+    },
+    {
+      "fp": "f072ef065d40ad39",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SmartAccountFactory.sol:_defaultKeeper"
+    },
+    {
+      "fp": "9830a7760e935cb5",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SmartAccountFactory.sol:_keeper"
+    },
+    {
+      "fp": "bf55a1ceba14b869",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SmartAccount.sol:_keeper"
+    },
+    {
+      "fp": "fdaaf3d04d0382e3",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:_pool"
+    },
+    {
+      "fp": "e405ef8b210866ae",
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "where": "contracts/SweepPaymaster.sol:signer"
+    },
+    {
+      "fp": "8980ab193bc38d82",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_feeBps"
+    },
+    {
+      "fp": "644e1af358e9cc81",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:USDG"
+    },
+    {
+      "fp": "2ffcb8e6a17d927b",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_treasury"
+    },
+    {
+      "fp": "bfda800a30a71581",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:_executor"
+    },
+    {
+      "fp": "9e28feb9cd1b2c7b",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:_sweep"
+    },
+    {
+      "fp": "b89c936fc70749b9",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:USDG"
+    },
+    {
+      "fp": "7c0f27fdd69973b9",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepPolicyRegistry.sol:_paused"
+    },
+    {
+      "fp": "be5c45d0855196e1",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_router"
+    },
+    {
+      "fp": "60574569d13b5e55",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_interval"
+    },
+    {
+      "fp": "be3e9676cbde47c8",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:_keeper"
+    },
+    {
+      "fp": "0cc36366a1683611",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SmartAccountFactory.sol:_keeper"
+    },
+    {
+      "fp": "8fa7df2168385b98",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:_pool"
+    },
+    {
+      "fp": "e1595d44757a1490",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SweepPaymaster.sol:_max"
+    },
+    {
+      "fp": "02da71bbe45f38cb",
+      "check": "naming-convention",
+      "impact": "Informational",
+      "where": "contracts/SmartAccount.sol:_keeper"
+    },
+    {
+      "fp": "0c20887ccc7dcfd4",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "e6b1f9e2f99d222b",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "5a9c752b81fcb70c",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepExecutor.sol:_swapToStock"
+    },
+    {
+      "fp": "b5c4bd5fe5912170",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepBuyback.sol:buybackAndBurn"
+    },
+    {
+      "fp": "683f21623ce0cfdc",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "e8043940de2b0023",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "acd5b4a6853eed47",
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "d0b092630db3555b",
+      "check": "reentrancy-no-eth",
+      "impact": "Medium",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "606a68b6e8b23e7e",
+      "check": "timestamp",
+      "impact": "Low",
+      "where": "contracts/SweepBuyback.sol:buybackAndBurn"
+    },
+    {
+      "fp": "8c132ae6394239d8",
+      "check": "timestamp",
+      "impact": "Low",
+      "where": "contracts/SweepRouterV4Adapter.sol:swapExactTokensForTokens"
+    },
+    {
+      "fp": "1079815edd0395e8",
+      "check": "timestamp",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:executeSweep"
+    },
+    {
+      "fp": "2d2e7769ac2de548",
+      "check": "timestamp",
+      "impact": "Low",
+      "where": "contracts/SweepRouterV3Adapter.sol:swapExactTokensForTokens"
+    },
+    {
+      "fp": "ba866b22bd34c997",
+      "check": "timestamp",
+      "impact": "Low",
+      "where": "contracts/SweepExecutor.sol:_swapToStock"
+    },
+    {
+      "fp": "8230d3e463018f3c",
+      "check": "too-many-digits",
+      "impact": "Informational",
+      "where": "contracts/SmartAccountFactory.sol:constructor"
+    },
+    {
+      "fp": "cd0339194d5bc397",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "where": "contracts/SweepExecutor.sol:FeeConfigured"
+    },
+    {
+      "fp": "b94d994b36a19038",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:KeeperSet"
+    },
+    {
+      "fp": "4d5be462e3af4577",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:RouterSanctioned"
+    },
+    {
+      "fp": "c1105e3e5f20f92d",
+      "check": "unindexed-event-address",
+      "impact": "Informational",
+      "where": "contracts/SweepBuyback.sol:SweepTokenSet"
+    },
+    {
+      "fp": "516e5fa16dbaaf9f",
+      "check": "unused-return",
+      "impact": "Medium",
+      "where": "contracts/SmartAccount.sol:_isKeeperSignature"
+    },
+    {
+      "fp": "e0aebd9468ad8fdc",
+      "check": "unused-return",
+      "impact": "Medium",
+      "where": "contracts/SweepPaymaster.sol:validatePaymasterUserOp"
+    },
+    {
+      "fp": "95cc1e4339f46563",
+      "check": "unused-state",
+      "impact": "Informational",
+      "where": "contracts/SweepPaymaster.sol:SIGNATURE_OFFSET"
+    },
+    {
+      "fp": "a141be47bce26390",
+      "check": "unused-state",
+      "impact": "Informational",
+      "where": "contracts/SweepPaymaster.sol:PAYMASTER_DATA_OFFSET"
+    }
+  ]
+}
