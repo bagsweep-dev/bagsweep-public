@@ -18,14 +18,14 @@ describe("SweepRouterV4Adapter", function () {
   beforeEach(async function () {
     [owner, account, other] = await ethers.getSigners();
     usdg = await (await ethers.getContractFactory("MockUSDG")).deploy();
-    sweep = await (await ethers.getContractFactory("MockMemeToken")).deploy("Sweep", "SWEEP");
+    sweep = await (await ethers.getContractFactory("MockMemeToken")).deploy("Sweep", "SWEPT");
     weth = await (await ethers.getContractFactory("MockMemeToken")).deploy("Weth", "WETH");
     permit2 = await (await ethers.getContractFactory("MockPermit2")).deploy();
     ur = await (await ethers.getContractFactory("MockUniversalRouter")).deploy(await permit2.getAddress());
     adapter = await (await ethers.getContractFactory("SweepRouterV4Adapter"))
       .deploy(await ur.getAddress(), await permit2.getAddress(), owner.address);
 
-    // Router liquidity + a direct USDG->SWEEP rate of 1:1 (6dp -> 18dp => out = in * 1e12).
+    // Router liquidity + a direct USDG->SWEPT rate of 1:1 (6dp -> 18dp => out = in * 1e12).
     await sweep.mint(await ur.getAddress(), ONE(1_000_000));
     await ur.setRate(await usdg.getAddress(), await sweep.getAddress(), 10n ** 12n, 1n);
     await adapter.setPoolKey(await usdg.getAddress(), await sweep.getAddress(), 3000, 60, HOOK);
@@ -37,10 +37,10 @@ describe("SweepRouterV4Adapter", function () {
   }
   const path = async () => [await usdg.getAddress(), await sweep.getAddress()];
 
-  it("routes a single-hop USDG->SWEEP swap and pays the recipient", async function () {
+  it("routes a single-hop USDG->SWEPT swap and pays the recipient", async function () {
     await fund(account, USDG6(100));
     await adapter.connect(account).swapExactTokensForTokens(USDG6(10), ONE(9), await path(), other.address, await DEADLINE());
-    expect(await sweep.balanceOf(other.address)).to.equal(ONE(10));       // 10 USDG -> 10 SWEEP delivered to `to`
+    expect(await sweep.balanceOf(other.address)).to.equal(ONE(10));       // 10 USDG -> 10 SWEPT delivered to `to`
     expect(await sweep.balanceOf(await adapter.getAddress())).to.equal(0n); // adapter retains nothing
     expect(await usdg.balanceOf(await adapter.getAddress())).to.equal(0n);
   });
@@ -62,7 +62,7 @@ describe("SweepRouterV4Adapter", function () {
 
   it("enforces the terminal amountOutMin (short fill reverts)", async function () {
     await fund(account, USDG6(10));
-    await expect( // 10 USDG yields 10 SWEEP; demand 11 -> the router's TAKE_ALL floor reverts
+    await expect( // 10 USDG yields 10 SWEPT; demand 11 -> the router's TAKE_ALL floor reverts
       adapter.connect(account).swapExactTokensForTokens(USDG6(10), ONE(11), await path(), other.address, await DEADLINE())
     ).to.be.revertedWith("MockUR: too little received");
   });
@@ -91,8 +91,8 @@ describe("SweepRouterV4Adapter", function () {
     expect(set2).to.equal(false);
   });
 
-  it("routes a multi-hop USDG->WETH->SWEEP path, holding the intermediate on the adapter", async function () {
-    // USDG(6dp)->WETH(18dp) at *1e12, WETH->SWEEP at *2  =>  10 USDG -> 10 WETH -> 20 SWEEP
+  it("routes a multi-hop USDG->WETH->SWEPT path, holding the intermediate on the adapter", async function () {
+    // USDG(6dp)->WETH(18dp) at *1e12, WETH->SWEPT at *2  =>  10 USDG -> 10 WETH -> 20 SWEPT
     await weth.mint(await ur.getAddress(), ONE(1_000_000));
     await ur.setRate(await usdg.getAddress(), await weth.getAddress(), 10n ** 12n, 1n);
     await ur.setRate(await weth.getAddress(), await sweep.getAddress(), 2n, 1n);
@@ -113,14 +113,14 @@ describe("SweepRouterV4Adapter", function () {
     expect(await usdg.allowance(await adapter.getAddress(), await permit2.getAddress())).to.equal(0n);
   });
 
-  it("the frozen SweepBuyback buys back and burns $SWEEP through the adapter", async function () {
+  it("the frozen SweepBuyback buys back and burns $SWEPT through the adapter", async function () {
     const buyback = await (await ethers.getContractFactory("SweepBuyback"))
       .deploy(await usdg.getAddress(), owner.address, owner.address); // owner is the keeper
     await usdg.mint(await buyback.getAddress(), USDG6(100));           // accumulated fees
     await buyback.setSweepToken(await sweep.getAddress());
     await buyback.setSanctionedRouter(await adapter.getAddress(), true);
 
-    const usdgIn = USDG6(10); // -> 10 SWEEP
+    const usdgIn = USDG6(10); // -> 10 SWEPT
     const iface = new ethers.Interface(["function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"]);
     const swapData = iface.encodeFunctionData("swapExactTokensForTokens", [
       usdgIn, ONE(9), await path(), await buyback.getAddress(), await DEADLINE(),

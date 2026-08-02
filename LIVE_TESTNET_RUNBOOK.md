@@ -150,8 +150,8 @@ await (await executor.setSanctionedRouter(routerAddr, true)).wait();
 const paymaster = await ethers.getContractAt("SweepPaymaster", a.paymaster);
 await (await paymaster.addStake(86400, { value: ethers.parseEther("0.05") })).wait();
 
-// 4d. Fee/buyback (optional, only for S4): deploy $SWEEP + SweepBuyback, then
-//     buyback.setSweepToken($SWEEP); executor.setTreasury(buyback); executor.setFeeBps(50);
+// 4d. Fee/buyback (optional, only for S4): deploy $SWEPT + SweepBuyback, then
+//     buyback.setSweepToken($SWEPT); executor.setTreasury(buyback); executor.setFeeBps(50);
 ```
 
 Leave `feeBps` at 0 unless you are running the S4 fee scenario. Everything the timelock will
@@ -268,7 +268,7 @@ Switch to [`TESTNET_TEST_PLAN.md`](TESTNET_TEST_PLAN.md) and run:
 - **§5** negative scenarios N1-N11. The four highest-signal ones prove the trust claims:
   - **N2**: keeper cannot escape its bound (non-`executeSweep` UserOp rejected).
   - **N3**: owner always-exit works with keeper/bundler/paymaster all offline.
-  - **N9**: buyback USDG can only leave as burned $SWEEP.
+  - **N9**: buyback USDG can only leave as burned $SWEPT.
   - **N10**: paymaster rejects non-eligible targets (the §5 fix; drain vector closed).
 - **§6** run the keeper loop unattended through several real sweeps.
 

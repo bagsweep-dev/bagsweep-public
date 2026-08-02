@@ -1,12 +1,12 @@
 /**
  * BagSweep Keeper — Buyback job
  * Periodically triggers SweepBuyback.buybackAndBurn: swap accumulated USDG protocol fees
- * into $SWEEP and burn them to 0x…dEaD. buybackAndBurn is keeper-gated on-chain, so this
+ * into $SWEPT and burn them to 0x…dEaD. buybackAndBurn is keeper-gated on-chain, so this
  * submits a DIRECT keeper transaction (not a 4337 UserOp). It is cooldown- and cap-aware
  * (mirrors the contract's checks so it never submits a reverting tx) and derives
  * minSweepOut from the V3 Quoter, the way the evaluator does for sweeps.
  *
- * $SWEEP is read from buyback.sweepToken(), so this is agnostic to how the token was
+ * $SWEPT is read from buyback.sweepToken(), so this is agnostic to how the token was
  * created (launchpad or otherwise). No-op until the token is set (post-launch).
  */
 import { ethers } from "ethers";
@@ -45,9 +45,9 @@ export function planBuyback({ usdgBalance, maxSpendBps, cooldown, lastBuyback, n
 }
 
 /**
- * Choose the USDG -> $SWEEP swap route and size the slippage floor. Launchpad tokens pair
- * with WETH, not USDG, so the direct [USDG, $SWEEP] pool usually does not exist; when it is
- * missing this routes via the configured hubs (USDG -> WETH -> $SWEEP), picking whichever
+ * Choose the USDG -> $SWEPT swap route and size the slippage floor. Launchpad tokens pair
+ * with WETH, not USDG, so the direct [USDG, $SWEPT] pool usually does not exist; when it is
+ * missing this routes via the configured hubs (USDG -> WETH -> $SWEPT), picking whichever
  * candidate quotes deepest. Pure given feeFor/quote (runBuyback injects the adapter + quoter).
  * @returns {Promise<{path:string[], fees:number[], amountOut:bigint, minOut:bigint}|null>}
  */
@@ -61,7 +61,7 @@ export async function planBuybackSwap({ usdg, sweepToken, hubs, amountIn, slippa
 
 /**
  * Run one buyback cycle. Returns the tx hash, or null when it's a no-op (disabled,
- * pre-launch, on cooldown, under the min threshold, or no USDG -> $SWEEP route exists).
+ * pre-launch, on cooldown, under the min threshold, or no USDG -> $SWEPT route exists).
  */
 export async function runBuyback(provider = getProvider()) {
   if (!config.buyback || !config.sweepRouter || !config.quoter) {
@@ -88,7 +88,7 @@ export async function runBuyback(provider = getProvider()) {
   });
   if (!plan.eligible) { console.log(`[buyback] skip: ${plan.reason}`); return null; }
 
-  // Route USDG -> $SWEEP: direct if a USDG/$SWEEP pool exists, else via a hub (WETH) since
+  // Route USDG -> $SWEPT: direct if a USDG/$SWEPT pool exists, else via a hub (WETH) since
   // launchpad tokens pair with WETH, not USDG. planBuybackSwap quotes each candidate and
   // picks the deepest, then applies the slippage floor.
   const adapter = new ethers.Contract(config.sweepRouter, ADAPTER_ABI, provider);
@@ -102,7 +102,7 @@ export async function runBuyback(provider = getProvider()) {
     feeFor: (a, b) => adapter.feeFor(a, b),
     quote: async (path, amt) => (await quoter.quoteExactInput.staticCall(path, amt))[0],
   });
-  if (!swap) { console.warn("[buyback] no USDG -> $SWEEP route (direct or via a hub); skipping"); return null; }
+  if (!swap) { console.warn("[buyback] no USDG -> $SWEPT route (direct or via a hub); skipping"); return null; }
 
   const minOut = swap.minOut;
   const deadline = block.timestamp + 300;
@@ -121,7 +121,7 @@ export async function runBuyback(provider = getProvider()) {
   }
 
   const tx = await buyback.buybackAndBurn(plan.usdgAmount, minOut, config.sweepRouter, swapData);
-  console.log(`[buyback] submitted ${tx.hash} (spend ${plan.usdgAmount} USDG, minOut ${minOut} $SWEEP)`);
+  console.log(`[buyback] submitted ${tx.hash} (spend ${plan.usdgAmount} USDG, minOut ${minOut} $SWEPT)`);
   const rc = await tx.wait();
   console.log(`[buyback] burned in block ${rc?.blockNumber}`);
   return tx.hash;

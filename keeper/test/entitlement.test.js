@@ -1,5 +1,5 @@
 /**
- * $SWEEP demand-gate tests. Uses a minimal fake provider so ethers.Contract reads
+ * $SWEPT demand-gate tests. Uses a minimal fake provider so ethers.Contract reads
  * (owner(), balanceOf()) resolve without a live RPC, and a mocked fetch for the price feed.
  */
 import { test } from "node:test";

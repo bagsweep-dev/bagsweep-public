@@ -48,13 +48,13 @@ The core invariant, verified under adversarial review: **a fully compromised kee
 
 Secrets live in gitignored `.env` files (`contracts/.env`, `keeper/.env`). Never commit them.
 
-## The token: $SWEEP
+## The token: $SWEPT
 
-$SWEEP captures protocol revenue through an **enforced** buy-and-burn: a share of the sweep fee buys $SWEEP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. More usage means more burn.
+$SWEPT captures protocol revenue through an **enforced** buy-and-burn: a share of the sweep fee buys $SWEPT on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. More usage means more burn.
 
-Holding $SWEEP also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $SWEEP or not.
+Holding $SWEPT also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $SWEPT or not.
 
-**Not yet live.** The official $SWEEP contract address will be published here at launch. Until then, any token calling itself $SWEEP is not ours.
+**Not yet live.** The official $SWEPT contract address will be published here at launch. Until then, any token calling itself $SWEPT is not ours.
 
 ## Phase-1 tracker
 
@@ -74,4 +74,4 @@ The read-only tracker at `app.bagsweep.xyz` is the demand test: paste any Robinh
 
 ## License
 
-**Source-available, not open source.** This code is published so anyone can read, audit, and independently verify the protocol, and run it locally against test networks. Deploying it, using it in production or commercially, or presenting a derivative as BagSweep or $SWEEP requires written permission. See `LICENSE`.
+**Source-available, not open source.** This code is published so anyone can read, audit, and independently verify the protocol, and run it locally against test networks. Deploying it, using it in production or commercially, or presenting a derivative as BagSweep or $SWEPT requires written permission. See `LICENSE`.

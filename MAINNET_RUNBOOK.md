@@ -9,7 +9,7 @@ Canonical mainnet addresses used below:
 - Uniswap V3 SwapRouter02 `0xCaf681a66D020601342297493863E78C959E5cb2`
 - Uniswap V3 QuoterV2 `0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7`
 - EntryPoint v0.8 `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`
-- $SWEEP `<SWEEP_ADDRESS, set at launch>`
+- $SWEPT `<SWEEP_ADDRESS, set at launch>`
 
 ---
 
@@ -24,8 +24,8 @@ Canonical mainnet addresses used below:
 > timelock at lockdown), L-1/L-4 (two-step ownership on the account + factory), L-5 (V3 adapter
 > rescue zero-guard). So the contracts are NOT the previously-frozen bytes — the external audit
 > must cover these. **M-2:** never call `paymaster.addStake` (stake would be irrecoverable; the
-> own-bundler setup needs none). **I-4:** the `SweepRouterV4Adapter` is dormant — $SWEEP is a V3
-> token, so it is NOT sanctioned for the $SWEEP buyback; run `forktest-v4.js` only if a
+> own-bundler setup needs none). **I-4:** the `SweepRouterV4Adapter` is dormant — $SWEPT is a V3
+> token, so it is NOT sanctioned for the $SWEPT buyback; run `forktest-v4.js` only if a
 > V4-graduating token is later supported. Canonical Permit2 on RH confirmed at
 > `0x000000000022D473030F116dDEE9F6B43aC78BA3`; source the V4 UniversalRouter from Uniswap's
 > official registry at that time. **Audit v5:** the UI's `SMART_ACCOUNT_CREATION_CODE` is
@@ -35,24 +35,24 @@ Canonical mainnet addresses used below:
 > a stale constant would compute wrong CREATE2 addresses and strand counterfactual-funded deposits.
 
 ## 1. Read the real pool fee tiers
-The buyback routes USDG -> WETH -> $SWEEP; the adapter needs the exact tier for each hop.
+The buyback routes USDG -> WETH -> $SWEPT; the adapter needs the exact tier for each hop.
 ```bash
-# USDG/WETH pool + fee, and WETH/$SWEEP pool + fee, from the canonical V3 factory 0x1f7d7550...
+# USDG/WETH pool + fee, and WETH/$SWEPT pool + fee, from the canonical V3 factory 0x1f7d7550...
 cast call 0x1f7d7550b1b028f7571e69a784071f0205fd2efa "getPool(address,address,uint24)(address)" <USDG> <WETH> <tier>
 cast call <poolAddr> "fee()(uint24)"
 ```
 Record `FEE_USDG_WETH` and `FEE_WETH_SWEEP`.
 
-**Verified on-chain 2026-07-29 ($SWEEP is a V3 token, not V4).** $SWEEP trades in a live Uniswap
-**V3** pool, SWEEP/WETH at the **1% (10000) tier**, pool `0xa8e95ddca643d0a4a6d695912e65b172e8f96e03`
-(initialized, has liquidity). There is no SWEEP/USDG pool and no SWEEP/WETH pool at the 500 or 3000
+**Verified on-chain 2026-07-29 ($SWEPT is a V3 token, not V4).** $SWEPT trades in a live Uniswap
+**V3** pool, SWEPT/WETH at the **1% (10000) tier**, pool `0xa8e95ddca643d0a4a6d695912e65b172e8f96e03`
+(initialized, has liquidity). There is no SWEPT/USDG pool and no SWEPT/WETH pool at the 500 or 3000
 tiers, so `FEE_WETH_SWEEP` **must be `10000`** — a default of 500/3000 would point `feeFor` at a
 non-existent pool and the buyback would skip forever. USDG/WETH exists at all three tiers (pick the
 deepest, historically the 500 tier). The V3 Quoter + `SweepRouterV3Adapter` see this pool fine; the
-shipped `SweepRouterV4Adapter` is not needed for $SWEEP (keep it for future launchpad tokens that
+shipped `SweepRouterV4Adapter` is not needed for $SWEPT (keep it for future launchpad tokens that
 graduate to a V4 pool).
 
-⚠ **Thin pool caveat.** At graduation the SWEEP/WETH pool holds only ~0.02 WETH of depth, so any
+⚠ **Thin pool caveat.** At graduation the SWEPT/WETH pool holds only ~0.02 WETH of depth, so any
 non-trivial buyback swap blows past the slippage floor and the pre-submit simulation reverts, so the
 keeper correctly **skips**. This is the slippage guard working, not a routing bug: the burn will
 legitimately no-op until the pool deepens. Set `maxSpendBps` conservatively and expect early
@@ -70,20 +70,20 @@ TIMELOCK_MIN_DELAY=172800 \
 npx hardhat run scripts/deploy-mainnet.js --network robinhood
 ```
 Deploys registry, executor, factory, paymaster, adapter, SweepBuyback, timelock; wires the
-adapter + `treasury -> SweepBuyback` + `sweepToken = $SWEEP`. **feeBps stays 0 (fees OFF)** and
+adapter + `treasury -> SweepBuyback` + `sweepToken = $SWEPT`. **feeBps stays 0 (fees OFF)** and
 ownership stays with the deployer. Addresses are written to `deployed-addresses.mainnet.json`.
 
 Verify + publish contracts on Blockscout (`npx hardhat verify --network robinhood <addr> <ctorArgs>`).
 
 ## 3. Verify the wiring (all must match)
 ```bash
-cast call <buyback>  "sweepToken()(address)"                 # == $SWEEP
+cast call <buyback>  "sweepToken()(address)"                 # == $SWEPT
 cast call <buyback>  "sanctionedRouters(address)(bool)" <adapter>   # true
 cast call <executor> "treasury()(address)"                   # == <buyback>
 cast call <executor> "sanctionedRouters(address)(bool)" <adapter>   # true
 cast call <executor> "feeBps()(uint256)"                     # 0 (still off)
 cast call <adapter>  "feeFor(address,address)(uint24)" <USDG> <WETH>   # == FEE_USDG_WETH
-cast call <adapter>  "feeFor(address,address)(uint24)" <WETH> <SWEEP>   # == FEE_WETH_SWEEP
+cast call <adapter>  "feeFor(address,address)(uint24)" <WETH> <SWEPT>   # == FEE_WETH_SWEEP
 ```
 
 ## 4. Deploy the keeper (systemd service)
@@ -98,10 +98,10 @@ BUYBACK_ADDR=<buyback>
 SWEEP_HUBS=["0x0bd7d308f8e1639fab988df18a8011f41eacad73"]   # aeWETH, for the multi-hop route
 BUYBACK_ENABLED=1
 
-# $SWEEP demand gate — OFF by default (unset = every sweep sponsored, as today).
+# $SWEPT demand gate — OFF by default (unset = every sweep sponsored, as today).
 # GATE_ENABLED=1
 # SWEEP_ADDR=<SWEEP_ADDRESS, set at launch>
-# SWEEP_MIN_HOLD=250000     # whole $SWEEP the account OWNER must hold to get GASLESS keeper sweeps (bootstrap fixed-count)
+# SWEEP_MIN_HOLD=250000     # whole $SWEPT the account OWNER must hold to get GASLESS keeper sweeps (bootstrap fixed-count)
 # GATE_FAIL_OPEN=1         # on a balance-read error, sponsor anyway (default; set 0 to fail closed)
 ```
 `systemctl start bagsweep-keeper` then confirm it reads state and logs `skip: ...` cleanly
@@ -109,24 +109,24 @@ BUYBACK_ENABLED=1
 skip, not a bad send.
 
 The gate never touches on-chain safety: a non-entitled account keeps `ownerExecute` and
-self-custody; the keeper just doesn't sponsor its gas. Flip it on only after $SWEEP has real
+self-custody; the keeper just doesn't sponsor its gas. Flip it on only after $SWEPT has real
 liquidity + the copy is ready.
 
 ## 5. Canary (fees still OFF)
 - **Sweep:** from a throwaway smart account with a tiny meme position, author a policy and let
   the keeper harvest one sweep. Confirm the output lands and `ownerExecute()` still exits.
 - **Buyback:** set `feeBps` to a small value briefly, generate one harvest so USDG lands in the
-  buyback, then confirm `runBuyback` picks the USDG -> WETH -> $SWEEP route and burns:
+  buyback, then confirm `runBuyback` picks the USDG -> WETH -> $SWEPT route and burns:
   ```bash
   cast call <buyback> "buybackAndBurn(uint256,uint256,address,bytes)" ...   # staticCall first
   ```
-  Check the `BuybackBurned` event and that $SWEEP `balanceOf(0x...dEaD)` increased.
+  Check the `BuybackBurned` event and that $SWEPT `balanceOf(0x...dEaD)` increased.
 
 ## 6. Go live (fees on)
 ```bash
 cast send <executor> "setFeeBps(uint256)" 50   # 0.5% — the launch fee, well under the 1% MAX_FEE_BPS cap
 ```
-Fees now accrue in SweepBuyback; the keeper's buyback loop burns $SWEEP on its cooldown.
+Fees now accrue in SweepBuyback; the keeper's buyback loop burns $SWEPT on its cooldown.
 
 ## 7. Lock it down (after the canary is clean)
 Order matters: hand config to the timelock, keep the pause fast.

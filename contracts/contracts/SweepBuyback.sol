@@ -10,29 +10,29 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @author BagSweep
 /// @notice Sink for BagSweep protocol fees (the USDG that SweepExecutor skims into
 ///         its `treasury`). Accumulated USDG can ONLY leave by being swapped for
-///         $SWEEP and burned: there is no owner withdrawal path for USDG, so the
+///         $SWEPT and burned: there is no owner withdrawal path for USDG, so the
 ///         buyback-and-burn is enforced by the contract, not merely promised.
-///         Deploy after $SWEEP exists, then point `SweepExecutor.treasury` here.
+///         Deploy after $SWEPT exists, then point `SweepExecutor.treasury` here.
 /// @dev    Non-proxy / immutable. Owner powers are bounded to sanctioning routers,
-///         setting the keeper, and setting $SWEEP ONCE. The owner can never extract
+///         setting the keeper, and setting $SWEPT ONCE. The owner can never extract
 ///         the USDG fees and can never repoint the burn target to a decoy token.
 contract SweepBuyback is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    /// @dev standard burn sink; $SWEEP sent here is out of circulation forever.
+    /// @dev standard burn sink; $SWEPT sent here is out of circulation forever.
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
     /// @dev Robinhood Chain USDG (the fee asset). Only ever exits via buyback-burn.
     address public immutable USDG;
 
-    /// @dev the $SWEEP token. Set once, then immutable.
+    /// @dev the $SWEPT token. Set once, then immutable.
     address public sweepToken;
 
     /// @dev address permitted to trigger buybacks. Bounds swap timing/MEV; it
     ///      cannot steal (output is burned) and cannot withdraw USDG (no path).
     address public keeper;
 
-    /// @dev owner-sanctioned routers for the USDG→$SWEEP swap (real venues only,
+    /// @dev owner-sanctioned routers for the USDG→$SWEPT swap (real venues only,
     ///      so a buyback can never be routed into a fake pool).
     mapping(address => bool) public sanctionedRouter;
 
@@ -74,13 +74,13 @@ contract SweepBuyback is Ownable, ReentrancyGuard {
 
     // ─────────────────────────── Buyback ──────────────────────────
 
-    /// @notice Swap USDG held here into $SWEEP via a sanctioned router and burn it.
+    /// @notice Swap USDG held here into $SWEPT via a sanctioned router and burn it.
     /// @param  usdgAmount  USDG to approve for the swap (bounded by the balance).
     /// @param  minSweepOut mandatory slippage floor; a short or redirected swap reverts.
     /// @param  router      a sanctioned DEX router.
-    /// @param  swapData    the encoded USDG→$SWEEP swap (output must land on this contract).
+    /// @param  swapData    the encoded USDG→$SWEPT swap (output must land on this contract).
     /// @dev    Keeper-gated to bound swap timing/MEV. The keeper cannot steal: the
-    ///         $SWEEP output is measured by balance delta and burned in the same
+    ///         $SWEPT output is measured by balance delta and burned in the same
     ///         call, and there is no path to withdraw the USDG.
     function buybackAndBurn(
         uint256 usdgAmount,
@@ -116,7 +116,7 @@ contract SweepBuyback is Ownable, ReentrancyGuard {
         emit BuybackBurned(usdgSpent, sweepBurned, msg.sender, block.timestamp);
     }
 
-    /// @notice Permissionlessly burn any $SWEEP sitting on this contract (dust from
+    /// @notice Permissionlessly burn any $SWEPT sitting on this contract (dust from
     ///         a partial swap, or a stray transfer). Anyone may call; the only
     ///         possible destination is DEAD.
     function burnStuckSweep() external returns (uint256 burned) {
@@ -131,7 +131,7 @@ contract SweepBuyback is Ownable, ReentrancyGuard {
 
     // ─────────────────────────── Admin (bounded) ──────────────────
 
-    /// @notice Set the $SWEEP token. Callable ONCE; immutable thereafter, so the
+    /// @notice Set the $SWEPT token. Callable ONCE; immutable thereafter, so the
     ///         burn target can never be repointed to a decoy token.
     function setSweepToken(address _sweep) external onlyOwner {
         if (_sweep == address(0)) revert ZeroAddress();
@@ -148,7 +148,7 @@ contract SweepBuyback is Ownable, ReentrancyGuard {
         emit KeeperSet(_keeper);
     }
 
-    /// @notice Sanction (or unsanction) a router for the USDG→$SWEEP swap.
+    /// @notice Sanction (or unsanction) a router for the USDG→$SWEPT swap.
     /// @dev    Governance-sensitive: route through the timelock before mainnet.
     function setSanctionedRouter(address router, bool ok) external onlyOwner {
         if (router == address(0)) revert ZeroAddress();
@@ -172,7 +172,7 @@ contract SweepBuyback is Ownable, ReentrancyGuard {
     }
 
     /// @notice Rescue a foreign token sent here by mistake. USDG (the fee asset,
-    ///         which may only exit as a burn) and $SWEEP (which must be burned, via
+    ///         which may only exit as a burn) and $SWEPT (which must be burned, via
     ///         burnStuckSweep) can NEVER be rescued — that is what makes the
     ///         buyback-and-burn credible rather than a promise.
     function rescue(address token, uint256 amount, address to) external onlyOwner {

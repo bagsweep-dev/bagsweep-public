@@ -1,5 +1,5 @@
 /**
- * BagSweep Keeper — $SWEEP demand gate (off-chain sponsor entitlement).
+ * BagSweep Keeper — $SWEPT demand gate (off-chain sponsor entitlement).
  *
  * The paymaster sponsor-signer sponsors a gasless sweep only for accounts whose OWNER is
  * entitled. Read-only: balances are read from the wallet and never moved or escrowed. This
@@ -66,7 +66,7 @@ function saveStore() {
  */
 export function initEntitlement(provider) {
   if (!config.gate.enabled) {
-    console.log("[gate] $SWEEP demand gate OFF — all sweeps sponsored");
+    console.log("[gate] $SWEPT demand gate OFF — all sweeps sponsored");
     return;
   }
   if (!config.gate.sweep || config.gate.minHold <= 0n) {
@@ -76,8 +76,8 @@ export function initEntitlement(provider) {
   sweep = new ethers.Contract(config.gate.sweep, ERC20_ABI, provider);
   loadStore();
   console.log(
-    `[gate] $SWEEP demand gate ON — mode=${config.gate.mode}, target=$${config.gate.targetUsd}, ` +
-    `bootstrap floor=${config.gate.minHold / (10n ** 18n)} $SWEEP, ${store.size} qualified in store (${config.gate.sweep})`
+    `[gate] $SWEPT demand gate ON — mode=${config.gate.mode}, target=$${config.gate.targetUsd}, ` +
+    `bootstrap floor=${config.gate.minHold / (10n ** 18n)} $SWEPT, ${store.size} qualified in store (${config.gate.sweep})`
   );
 }
 

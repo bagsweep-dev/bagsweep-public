@@ -2,16 +2,16 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
-// SweepBuyback is the fee sink: USDG in can ONLY leave as burned $SWEEP. These
+// SweepBuyback is the fee sink: USDG in can ONLY leave as burned $SWEPT. These
 // tests prove the enforced-burn property (no USDG withdrawal path), the bounded
-// keeper, and the once-only $SWEEP target.
+// keeper, and the once-only $SWEPT target.
 describe("SweepBuyback — enforced buy-and-burn", function () {
   let owner, keeper, attacker;
   let usdg, sweep, router, buyback;
   const ONE = (n, d = 18) => ethers.parseUnits(n.toString(), d);
   const DEAD = "0x000000000000000000000000000000000000dEaD";
 
-  // USDG (6 dec) -> SWEEP (18 dec) at 1:1  =>  out = in * 1e12
+  // USDG (6 dec) -> SWEPT (18 dec) at 1:1  =>  out = in * 1e12
   const RATE_NUM = 10n ** 12n;
   const RATE_DEN = 1n;
 
@@ -19,7 +19,7 @@ describe("SweepBuyback — enforced buy-and-burn", function () {
     [owner, keeper, attacker] = await ethers.getSigners();
 
     usdg = await (await ethers.getContractFactory("MockUSDG")).deploy();
-    sweep = await (await ethers.getContractFactory("MockMemeToken")).deploy("Sweep", "SWEEP");
+    sweep = await (await ethers.getContractFactory("MockMemeToken")).deploy("Sweep", "SWEPT");
     router = await (await ethers.getContractFactory("MockSwapRouter")).deploy(RATE_NUM, RATE_DEN);
     buyback = await (await ethers.getContractFactory("SweepBuyback")).deploy(
       await usdg.getAddress(),
@@ -27,7 +27,7 @@ describe("SweepBuyback — enforced buy-and-burn", function () {
       keeper.address
     );
 
-    // Accumulated USDG fees sit on the buyback; the router holds $SWEEP liquidity.
+    // Accumulated USDG fees sit on the buyback; the router holds $SWEPT liquidity.
     await usdg.mint(await buyback.getAddress(), ONE(100, 6));
     await sweep.mint(await router.getAddress(), ONE(1_000_000));
 
@@ -48,8 +48,8 @@ describe("SweepBuyback — enforced buy-and-burn", function () {
     ]);
   }
 
-  it("keeper buys back USDG for SWEEP and burns it to DEAD", async function () {
-    const usdgIn = ONE(10, 6); // 10 USDG -> 10 SWEEP
+  it("keeper buys back USDG for SWEPT and burns it to DEAD", async function () {
+    const usdgIn = ONE(10, 6); // 10 USDG -> 10 SWEPT
     const data = await swapData(usdgIn);
 
     await expect(
@@ -67,7 +67,7 @@ describe("SweepBuyback — enforced buy-and-burn", function () {
     ).to.be.revertedWithCustomError(buyback, "CannotRescueProtocolAsset");
   });
 
-  it("rescue reverts on $SWEEP too (must be burned, not rescued)", async function () {
+  it("rescue reverts on $SWEPT too (must be burned, not rescued)", async function () {
     await expect(
       buyback.rescue(await sweep.getAddress(), 1, owner.address)
     ).to.be.revertedWithCustomError(buyback, "CannotRescueProtocolAsset");
@@ -95,14 +95,14 @@ describe("SweepBuyback — enforced buy-and-burn", function () {
   });
 
   it("reverts when the buyback falls short of minSweepOut", async function () {
-    const usdgIn = ONE(10, 6); // yields 10 SWEEP
+    const usdgIn = ONE(10, 6); // yields 10 SWEPT
     const data = await swapData(usdgIn);
     await expect(
       buyback.connect(keeper).buybackAndBurn(usdgIn, ONE(11), await router.getAddress(), data)
     ).to.be.revertedWithCustomError(buyback, "BuybackSlippage");
   });
 
-  it("sets the $SWEEP token once — immutable thereafter", async function () {
+  it("sets the $SWEPT token once — immutable thereafter", async function () {
     await expect(
       buyback.setSweepToken(attacker.address)
     ).to.be.revertedWithCustomError(buyback, "SweepTokenAlreadySet");
@@ -133,7 +133,7 @@ describe("SweepBuyback — enforced buy-and-burn", function () {
     ).to.emit(buyback, "BuybackBurned");
   });
 
-  it("permissionlessly burns stray $SWEEP", async function () {
+  it("permissionlessly burns stray $SWEPT", async function () {
     await sweep.mint(await buyback.getAddress(), ONE(5));
     await buyback.connect(attacker).burnStuckSweep(); // anyone may call
     expect(await sweep.balanceOf(DEAD)).to.equal(ONE(5));

@@ -48,7 +48,7 @@ Four mutations against `SweepBuyback.sol`, suite `SweepBuybackNoExit.t.sol` — 
 | MB1 | `rescue`: drop the `token == USDG` guard | **KILLED** | `test_ownerCannotRescueUsdg` — the owner must never be able to pull the fee pool. |
 | MB2 | `buybackAndBurn`: `safeTransfer(DEAD, …)` → `safeTransfer(msg.sender, …)` | **KILLED** | `invariant_noSweepRedirected` — output must go to DEAD, never the keeper. |
 | MB3 | remove the `usdgAmount > maxSpendBps` cap | **KILLED** | `invariant_boundedBleed` — one call can't spend the whole pool. |
-| MB4 | remove `if (sweepBurned < minSweepOut) revert` | **KILLED** | `invariant_noSweepRedirected` — without the floor, a redirected buyback leaks SWEEP to the attacker. |
+| MB4 | remove `if (sweepBurned < minSweepOut) revert` | **KILLED** | `invariant_noSweepRedirected` — without the floor, a redirected buyback leaks SWEPT to the attacker. |
 
 The no-exit guarantee holds: a compromised keeper can slow-bleed the pool through burns (bounded, cooldowned) but can never extract USDG or redirect the burn. 4/4 mutants killed.
 

@@ -57,8 +57,8 @@ export async function buildUserOp(plan) {
   const { account, swaps, dest, stockTarget, stockSpotQuote } = plan;
   const provider = keeperWallet.provider;
 
-  // $SWEEP demand gate. With a paymaster configured, the keeper sponsors (and therefore
-  // submits) a gasless sweep ONLY for a $SWEEP-entitled owner. A non-entitled account is
+  // $SWEPT demand gate. With a paymaster configured, the keeper sponsors (and therefore
+  // submits) a gasless sweep ONLY for a $SWEPT-entitled owner. A non-entitled account is
   // denied NOTHING on-chain — it keeps the ungated self-exit (SmartAccount.ownerExecute)
   // — the keeper simply does not automate a gasless sweep for it. Returns null so the
   // caller skips it (a skip, not a failure). Gate off => isEntitled() is always true.

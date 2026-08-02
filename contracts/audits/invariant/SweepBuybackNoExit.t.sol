@@ -4,16 +4,16 @@ pragma solidity ^0.8.28;
 // BagSweep in-house audit — invariant #3: SweepBuyback no-exit.
 //
 // Guarantee: USDG (the accumulated fee pool) can leave the contract ONLY by being
-// swapped for $SWEEP and burned to DEAD. There is no owner withdrawal, USDG/$SWEEP
+// swapped for $SWEPT and burned to DEAD. There is no owner withdrawal, USDG/$SWEPT
 // cannot be rescued, and the buyback output is measured and burned in the same call.
 // The keeper is untrusted: it can time/route buybacks but can never extract value.
 //
 //   INV-1  no keeper/owner/attacker address ever holds USDG (the pool can't be pulled)
-//   INV-2  no keeper/owner/attacker address ever holds $SWEEP (output can't be redirected)
-//   INV-3  DEAD's $SWEEP balance only ever grows (every buyback output is burned)
+//   INV-2  no keeper/owner/attacker address ever holds $SWEPT (output can't be redirected)
+//   INV-3  DEAD's $SWEPT balance only ever grows (every buyback output is burned)
 //   INV-4  a single buyback spends at most maxSpendBps of the balance (bounded bleed)
 //
-// Plus two unit checks: the owner cannot rescue USDG or $SWEEP.
+// Plus two unit checks: the owner cannot rescue USDG or $SWEPT.
 
 import {Test} from "forge-std/Test.sol";
 import {SweepBuyback} from "../../contracts/SweepBuyback.sol";
@@ -53,8 +53,8 @@ contract BuybackKeeper is Test {
         uint256 amount = bound(amtSeed, 1, maxSpend);
         address to = address(bb);
         address rtr = address(router);
-        uint256 minOut = amount * 1e12; // honest 1:1 (USDG 6dp -> SWEEP 18dp)
-        if (kind % 5 == 1) to = attacker;             // redirect the SWEEP output
+        uint256 minOut = amount * 1e12; // honest 1:1 (USDG 6dp -> SWEPT 18dp)
+        if (kind % 5 == 1) to = attacker;             // redirect the SWEPT output
         else if (kind % 5 == 2) rtr = attacker;       // unsanctioned router
         else if (kind % 5 == 3) amount = pool;        // oversize past the spend cap
         else if (kind % 5 == 4) minOut = 0;           // no slippage floor
@@ -69,7 +69,7 @@ contract BuybackKeeper is Test {
         } catch {}
     }
 
-    /// Anyone may sweep stray $SWEEP to DEAD; exercise it too.
+    /// Anyone may sweep stray $SWEPT to DEAD; exercise it too.
     function burnStuck() external { try bb.burnStuckSweep() {} catch {} }
 }
 
@@ -85,8 +85,8 @@ contract SweepBuybackNoExitTest is Test {
 
     function setUp() public {
         usdg = new MockUSDG();
-        sweep = new MockMemeToken("Sweep", "SWEEP");
-        router = new MockSwapRouter(1e12, 1); // 1e6 USDG -> 1e18 SWEEP (1:1 value)
+        sweep = new MockMemeToken("Sweep", "SWEPT");
+        router = new MockSwapRouter(1e12, 1); // 1e6 USDG -> 1e18 SWEPT (1:1 value)
 
         keeper = new BuybackKeeper(bb, usdg, sweep, router, attacker); // placeholder; rewired below
         bb = new SweepBuyback(address(usdg), owner, address(keeper));
@@ -98,7 +98,7 @@ contract SweepBuybackNoExitTest is Test {
         bb.setCooldown(0); // let the fuzzer run many buybacks; the per-call spend cap still bounds each
 
         IMintable(address(usdg)).mint(address(bb), FEE_POOL);      // the fee pool to protect
-        IMintable(address(sweep)).mint(address(router), 1e30);     // router can pay out SWEEP
+        IMintable(address(sweep)).mint(address(router), 1e30);     // router can pay out SWEPT
 
         targetContract(address(keeper));
     }
@@ -112,19 +112,19 @@ contract SweepBuybackNoExitTest is Test {
 
     /// INV-2: buyback output can never be redirected to a keeper/owner/attacker.
     function invariant_noSweepRedirected() public view {
-        assertEq(sweep.balanceOf(address(keeper)), 0, "SWEEP reached the keeper");
-        assertEq(sweep.balanceOf(owner), 0, "SWEEP reached the owner");
-        assertEq(sweep.balanceOf(attacker), 0, "SWEEP reached an attacker");
+        assertEq(sweep.balanceOf(address(keeper)), 0, "SWEPT reached the keeper");
+        assertEq(sweep.balanceOf(owner), 0, "SWEPT reached the owner");
+        assertEq(sweep.balanceOf(attacker), 0, "SWEPT reached an attacker");
     }
 
-    /// INV-3: every unit of $SWEEP the buyback ever produced is at DEAD (only exit is burn).
+    /// INV-3: every unit of $SWEPT the buyback ever produced is at DEAD (only exit is burn).
     /// The contract itself may transiently hold 0; DEAD only grows.
     function invariant_outputOnlyBurned() public view {
-        // All SWEEP that ever left the router went to DEAD or is dust on the bb (burnable).
+        // All SWEPT that ever left the router went to DEAD or is dust on the bb (burnable).
         uint256 atDead = sweep.balanceOf(DEAD);
         uint256 onBb = sweep.balanceOf(address(bb));
         uint256 routerLeft = sweep.balanceOf(address(router));
-        assertEq(atDead + onBb + routerLeft, 1e30, "SWEEP escaped the burn path");
+        assertEq(atDead + onBb + routerLeft, 1e30, "SWEPT escaped the burn path");
     }
 
     /// INV-4: a single buyback spends at most maxSpendBps (2000) of the pre-call balance.

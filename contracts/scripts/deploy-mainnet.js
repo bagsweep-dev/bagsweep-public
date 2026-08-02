@@ -3,7 +3,7 @@
  *
  * Superset of scripts/deploy.js: deploys the core (registry, executor, factory, paymaster)
  * PLUS the SweepRouterV3Adapter, SweepBuyback, and BagSweepTimelock, then wires the routing,
- * the buyback ($SWEEP), and the fee sink. It deliberately does NOT:
+ * the buyback ($SWEPT), and the fee sink. It deliberately does NOT:
  *   - flip feeBps on   (fees stay OFF until the runbook's canary passes; launch target 50 bps = 0.5%)
  *   - hand config ownership to the timelock or move the pause to the guardian
  *     (both are staged, human-gated steps in MAINNET_RUNBOOK.md, after the canary)
@@ -68,7 +68,7 @@ async function main() {
   console.log("═══════════════════════════════════════");
   console.log("Deployer: ", deployer.address);
   console.log("Keeper:   ", keeper, "(hot signer; key lives ONLY in the keeper service)");
-  console.log("$SWEEP:    ", sweep);
+  console.log("$SWEPT:    ", sweep);
   console.log("Balance:  ", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH\n");
 
   const A = {
@@ -124,24 +124,24 @@ async function main() {
   await adapter.waitForDeployment();
   A.sweepRouter = await adapter.getAddress();
   console.log("  ", A.sweepRouter);
-  // Pool fee tiers for the buyback route USDG->WETH->$SWEEP. Must match the real pools;
+  // Pool fee tiers for the buyback route USDG->WETH->$SWEPT. Must match the real pools;
   // determine them per the runbook (read pool.fee()). Per-meme sweep legs (meme/WETH) are
   // set operationally as memes are supported.
   if (feeUsdgWeth) { await wait(adapter.setPoolFee(usdg, weth, feeUsdgWeth)); console.log("   setPoolFee USDG/WETH", feeUsdgWeth); }
-  if (feeWethSweep) { await wait(adapter.setPoolFee(weth, sweep, feeWethSweep)); console.log("   setPoolFee WETH/$SWEEP", feeWethSweep); }
+  if (feeWethSweep) { await wait(adapter.setPoolFee(weth, sweep, feeWethSweep)); console.log("   setPoolFee WETH/$SWEPT", feeWethSweep); }
   if (!feeUsdgWeth || !feeWethSweep) {
     console.log("  ⚠ FEE_USDG_WETH / FEE_WETH_SWEEP not both set: buyback quotes will fail until");
-    console.log("    adapter.setPoolFee is called for the USDG/WETH and WETH/$SWEEP pools.");
+    console.log("    adapter.setPoolFee is called for the USDG/WETH and WETH/$SWEPT pools.");
   }
 
-  // ── 6. SweepBuyback (fee sink; enforced buy-and-burn of $SWEEP) ──
+  // ── 6. SweepBuyback (fee sink; enforced buy-and-burn of $SWEPT) ──
   console.log("▸ SweepBuyback...");
   const buyback = await (await ethers.getContractFactory("SweepBuyback")).deploy(usdg, deployer.address, keeper);
   await buyback.waitForDeployment();
   A.buyback = await buyback.getAddress();
-  await wait(buyback.setSweepToken(sweep));           // burn target = the live $SWEEP
+  await wait(buyback.setSweepToken(sweep));           // burn target = the live $SWEPT
   await wait(buyback.setSanctionedRouter(A.sweepRouter, true));
-  console.log("  ", A.buyback, "| sweepToken=$SWEEP | router sanctioned");
+  console.log("  ", A.buyback, "| sweepToken=$SWEPT | router sanctioned");
 
   // ── 7. Wire the executor: sanction the adapter, route fees to the burn sink ──
   // The executor skims its capped fee into `treasury`; pointing treasury at SweepBuyback is
