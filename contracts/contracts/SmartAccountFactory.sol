@@ -95,6 +95,7 @@ contract SmartAccountFactory {
     // ─────────────────────────── Admin ───────────────────────────────
 
     function setDefaultKeeper(address _keeper) external onlyOwner {
+        require(_keeper != address(0), "zero address");
         defaultKeeper = _keeper;
         emit DefaultKeeperSet(_keeper);
     }

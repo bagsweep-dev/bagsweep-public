@@ -151,6 +151,7 @@ contract SweepBuyback is Ownable, ReentrancyGuard {
     /// @notice Sanction (or unsanction) a router for the USDG→$SWEEP swap.
     /// @dev    Governance-sensitive: route through the timelock before mainnet.
     function setSanctionedRouter(address router, bool ok) external onlyOwner {
+        if (router == address(0)) revert ZeroAddress();
         sanctionedRouter[router] = ok;
         emit RouterSanctioned(router, ok);
     }

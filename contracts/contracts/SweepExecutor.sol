@@ -85,6 +85,7 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     error FeeExceedsMax();
     error DuplicateToken();
     error UnsafeSwapData();
+    error InvalidInterval();
     error SweepsPaused();
     error SweepCooldown();
     error ZeroAddress();
@@ -380,12 +381,14 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
 
     /// @notice Sanction (or unsanction) a DEX router for meme→USDG swaps.
     function setSanctionedRouter(address router, bool ok) external onlyOwner {
+        if (router == address(0)) revert ZeroAddress();
         sanctionedRouter[router] = ok;
         emit RouterSanctioned(router, ok);
     }
 
     /// @notice Sanction (or unsanction) a stock token as a STOCKS destination.
     function setSanctionedStock(address token, bool ok) external onlyOwner {
+        if (token == address(0)) revert ZeroAddress();
         sanctionedStock[token] = ok;
         emit StockSanctioned(token, ok);
     }
@@ -410,6 +413,7 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     /// @notice Set the per-account sweep cooldown in seconds (0 disables). (M-3)
     /// @dev    Governance-sensitive: route through the timelock before mainnet.
     function setMinSweepInterval(uint256 _interval) external onlyOwner {
+        if (_interval > 30 days) revert InvalidInterval();
         minSweepInterval = _interval;
         emit MinSweepIntervalSet(_interval);
     }

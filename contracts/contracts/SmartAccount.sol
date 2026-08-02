@@ -39,7 +39,7 @@ contract SmartAccount is Account, SignerECDSA {
     /// @dev Pending owner for the two-step ownership transfer (L-1).
     address public pendingOwner;
 
-    event KeeperSet(address indexed keeper);
+    event KeeperSet(address indexed previousKeeper, address indexed newKeeper);
     event SweepExecutorSet(address indexed executor);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -201,8 +201,11 @@ contract SmartAccount is Account, SignerECDSA {
 
     /// @notice Update the trusted keeper address (owner only).
     function setKeeper(address _keeper) external onlyOwnerOrSelf {
+        // keeper == address(0) is intentionally allowed: it disables the keeper
+        // path for this account (owner-only), see _isKeeperSignature.
+        address previousKeeper = keeper;
         keeper = _keeper;
-        emit KeeperSet(_keeper);
+        emit KeeperSet(previousKeeper, _keeper);
     }
 
     /// @notice Set the sweep executor address (owner only).

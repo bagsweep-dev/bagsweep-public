@@ -47,6 +47,11 @@ contract SweepPolicyRegistry is ISweepPolicy, Ownable {
     ///      (or the sponsor paying for them). User-authored lists are small.
     uint16 public constant MAX_WHITELIST = 50;
 
+    /// @dev Rejected policy inputs (H-1 hardening): a whitelist entry cannot be the
+    ///      zero address, and the same token cannot appear twice.
+    error ZeroAddressInWhitelist();
+    error DuplicateTokenInWhitelist();
+
     constructor(address initialOwner) Ownable(initialOwner) {}
 
     // ─────────────────────────── Modifiers ───────────────────────────
@@ -88,10 +93,16 @@ contract SweepPolicyRegistry is ISweepPolicy, Ownable {
         p.dest = dest;
         p.active = true;
 
-        // Overwrite whitelist
+        // Overwrite whitelist, rejecting zero-address and duplicate entries. The
+        // list is capped at MAX_WHITELIST (50), so the O(n^2) dedup is bounded.
         delete p.tokenWhitelist;
         for (uint256 i = 0; i < tokenWhitelist.length; i++) {
-            p.tokenWhitelist.push(tokenWhitelist[i]);
+            address tok = tokenWhitelist[i];
+            if (tok == address(0)) revert ZeroAddressInWhitelist();
+            for (uint256 j = 0; j < i; j++) {
+                if (tokenWhitelist[j] == tok) revert DuplicateTokenInWhitelist();
+            }
+            p.tokenWhitelist.push(tok);
         }
 
         if (p.createdAt == 0) {
