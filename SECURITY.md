@@ -15,10 +15,37 @@ disclosure timeline with you.
 
 ## Scope
 
-BagSweep is currently **testnet-only and unaudited** — it is not deployed to mainnet and
-should not be treated as production-ready. Reports against the on-chain contracts in
-`contracts/contracts/` are the most valuable; the off-chain keeper and the read-only
-tracker are secondary.
+BagSweep is **not yet on mainnet**. The contracts have been internally hardened (invariant
+and mutation testing) and externally reviewed, but should not be treated as production-ready
+until launch. Reports against the on-chain contracts in `contracts/contracts/` are the most
+valuable; the off-chain keeper and the read-only tracker are secondary.
+
+## Trust model
+
+BagSweep is non-custodial: your keys stay yours. Your smart account holds your own tokens,
+and your owner key can always exit directly (`ownerExecute`), independent of the keeper, the
+bundler, or the paymaster. The off-chain keeper is **untrusted by design** and is bounded
+on-chain: it can only execute the sweep policy you authored (which token, what percentage,
+where the proceeds go). It can never move funds outside that policy, redirect proceeds away
+from your account, or seize your account.
+
+## Known limitation: keeper-declared pricing (please read before using)
+
+Robinhood Chain has no price oracle and no usable on-chain TWAP. Because of that, the keeper
+declares the reference price for each sweep, and the on-chain slippage floor is derived from
+that declared price. **A compromised keeper can declare an artificially low price and route a
+sweep through a manipulated or sandwiched pool, extracting value from that sweep.**
+
+This is bounded, not unbounded. The keeper can never sweep more than the **percentage cap you
+authored** per cooldown interval, and can never touch tokens outside your policy or reach your
+account directly. So the worst case is losing up to your authored percentage of a position's
+value per interval, never your whole account, and your owner key can always exit.
+
+We cannot remove this on Robinhood Chain without an oracle, so we disclose it plainly rather
+than imply a protection that does not exist. To limit your exposure: author a conservative
+percentage cap, treat the keeper as untrusted, and exit via your owner key if you ever suspect
+the keeper is compromised. This tradeoff is inherent to hands-off take-profit automation on an
+oracle-less chain.
 
 ## Safe harbor
 
