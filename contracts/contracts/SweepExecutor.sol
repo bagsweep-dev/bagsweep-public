@@ -113,6 +113,10 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
         if (_usdg == address(0) || _registry == address(0)) revert ZeroAddress();
         USDG = _usdg;
         registry = SweepPolicyRegistry(_registry);
+        // Secure-by-default cooldown: an account is never exposed to same-block
+        // geometric liquidation even if the deploy step forgets to configure it.
+        // Governance can retune (down to 0) via setMinSweepInterval (timelocked).
+        minSweepInterval = 1 hours;
     }
 
     // ─────────────────────────── Core Sweep ──────────────────────────
@@ -176,7 +180,7 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
             // is what stops a compromised keeper from redirecting proceeds: the
             // balance-delta floor below is NOT sufficient on its own, because the
             // keeper picks the declared spotQuote and can round the floor to 0.
-            _requireSelfRoutedUsdgSwap(s.swapData, s.tokenIn);
+            _requireSelfRoutedUsdgSwap(s.swapData, s.tokenIn, s.amountIn);
             // cap the sell at pct% of the account's CURRENT balance. This bounds
             // both POSITION and PROFITS modes (profit <= position value), so a
             // compromised keeper can never sweep more than the policy allows.
@@ -218,6 +222,12 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
             // Clear any residual approval after a successful swap.
             IERC20(s.tokenIn).forceApprove(s.router, 0);
 
+            // Defense in depth (belt-and-suspenders to the encoded-amountIn check in
+            // _requireSelfRoutedUsdgSwap): refund any tokenIn the router did not
+            // consume, so a swap can never strand the user's input on this executor.
+            uint256 tokenInLeft = IERC20(s.tokenIn).balanceOf(address(this)) - balBefore;
+            if (tokenInLeft > 0) IERC20(s.tokenIn).safeTransfer(account, tokenInLeft);
+
             uint256 usdgReceived = IERC20(USDG).balanceOf(address(this)) - usdgBefore;
             if (usdgReceived < floor) revert SweepSlippageExceeded();
 
@@ -258,10 +268,14 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
     ///      sells `tokenIn` for USDG and delivers the output to THIS contract, so
     ///      the executor only ever credits the account with USDG that actually
     ///      lands here and the swap recipient cannot be redirected.
-    function _requireSelfRoutedUsdgSwap(bytes calldata swapData, address tokenIn) internal view {
+    function _requireSelfRoutedUsdgSwap(bytes calldata swapData, address tokenIn, uint256 expectedAmountIn) internal view {
         if (swapData.length < 4 || bytes4(swapData[0:4]) != SWAP_SELECTOR) revert UnsafeSwapData();
-        (, , address[] memory path, address to, ) =
+        (uint256 encodedAmountIn, , address[] memory path, address to, ) =
             abi.decode(swapData[4:], (uint256, uint256, address[], address, uint256));
+        // The encoded input MUST equal the policy-capped amount that gets pulled from the
+        // account: otherwise the keeper could pull `expectedAmountIn` but swap a smaller
+        // amount, stranding the difference on this executor (keeper-controlled fund lock).
+        if (encodedAmountIn != expectedAmountIn) revert UnsafeSwapData();
         if (to != address(this)) revert UnsafeSwapData();
         if (path.length < 2 || path[0] != tokenIn || path[path.length - 1] != USDG) revert UnsafeSwapData();
     }
@@ -325,9 +339,17 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
                 abi.encodeWithSignature("deposit(uint256,address)", amount, to)
             );
             uint256 balAfter = IERC20(USDG).balanceOf(address(this));
-            if (ok && balAfter <= balBefore && balBefore - balAfter >= amount) return;
-            // Deposit did not consume the USDG: clear the approval, transfer directly.
-            IERC20(USDG).forceApprove(yieldPool, 0);
+            IERC20(USDG).forceApprove(yieldPool, 0); // always clear the approval
+            // A pool that pulled any USDG (including a fee/rounding partial pull) counts
+            // as a deposit; refund the unconsumed remainder to the account. This stops a
+            // fee-taking pool from DoS-ing every USDG_YIELD sweep, and the account is
+            // never short-changed. `consumed <= amount` since the approval caps the pull.
+            uint256 consumed = balBefore > balAfter ? balBefore - balAfter : 0;
+            if (ok && consumed > 0) {
+                uint256 remainder = amount - consumed;
+                if (remainder > 0) IERC20(USDG).safeTransfer(to, remainder);
+                return;
+            }
         }
         IERC20(USDG).safeTransfer(to, amount);
     }

@@ -152,6 +152,30 @@ contract KeeperHandler is Test {
         try exec.executeSweep(swaps, Destination.USDG_YIELD, address(0), 0) {} catch {}
         _recordDrain(before);
     }
+
+    /// A hostile keeper that pulls the full policy-capped amount but encodes a SMALLER
+    /// amountIn in the swap calldata, trying to strand the difference on the executor
+    /// (external-audit finding #2). The encoded-amountIn check must reject it; INV-1
+    /// (executor holds nothing) and INV-3 (value conserved) both prove nothing stranded.
+    function strandSweep(uint256 seed) external {
+        uint256 bal = meme.balanceOf(address(this));
+        uint256 maxUnits = (bal * 2500 / 10000) / UNIT;
+        if (maxUnits < 2) return;
+        uint256 units = bound(seed, 2, maxUnits);
+        uint256 amountIn = units * UNIT;         // pulled from the account
+        uint256 encoded = amountIn / 2;          // but the swap only spends half
+        SwapParams[] memory swaps = new SwapParams[](1);
+        swaps[0] = SwapParams({
+            tokenIn: address(meme),
+            amountIn: amountIn,
+            spotQuote: units,
+            router: address(router),
+            swapData: _swapData(encoded, address(exec))
+        });
+        uint256 before = meme.balanceOf(address(this));
+        try exec.executeSweep(swaps, Destination.USDG_YIELD, address(0), 0) {} catch {}
+        _recordDrain(before);
+    }
 }
 
 contract SweepExecutorNoTheftTest is Test {
@@ -175,6 +199,9 @@ contract SweepExecutorNoTheftTest is Test {
         exec = new SweepExecutor(address(usdg), address(registry), owner);
         exec.setSanctionedRouter(address(router), true);     // both venues are owner-sanctioned;
         exec.setSanctionedRouter(address(skimRouter), true); // the floor is what must reject the bad one
+        exec.setMinSweepInterval(0);                         // cooldown is unit-tested separately; disable
+                                                             // it here so the fuzzer exercises many sweeps
+                                                             // against the value/theft/strand bounds
 
         // Fund both routers so they can pay out USDG on a swap.
         IMintable(address(usdg)).mint(address(router), 1_000_000_000e6);

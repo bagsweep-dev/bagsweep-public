@@ -103,6 +103,35 @@ describe("SweepExecutor — on-chain policy enforcement", function () {
       .to.be.revertedWithCustomError(executor, "OwnableUnauthorizedAccount");
   });
 
+  // External-audit finding #2: a compromised keeper pulls s.amountIn but encodes a
+  // smaller amountIn in swapData, stranding the difference on the executor.
+  it("F2: keeper cannot strand tokens by encoding a smaller amountIn in swapData", async function () {
+    await setPolicy(2500); // 25% of 1000 = 250 max
+    const s = {
+      tokenIn: await meme.getAddress(),
+      amountIn: ONE(200),                 // would be pulled from the account
+      spotQuote: ONE(180, 6),
+      router: await router.getAddress(),
+      swapData: await swapData(ONE(1)),   // but the swap only spends 1 -> 199 would strand
+    };
+    await expect(executor.connect(account).executeSweep([s], 0, ethers.ZeroAddress, 0))
+      .to.be.revertedWithCustomError(executor, "UnsafeSwapData");
+    // rejected before the pull: nothing stranded, account whole
+    expect(await meme.balanceOf(await executor.getAddress())).to.equal(0n);
+    expect(await meme.balanceOf(account.address)).to.equal(ONE(1000));
+  });
+
+  // External-audit finding #3: the cooldown must be non-zero by default so a fresh
+  // deployment is not exposed to same-block geometric liquidation.
+  it("F3: cooldown is secure-by-default (non-zero from construction, no config needed)", async function () {
+    expect(await executor.minSweepInterval()).to.be.gt(0);
+    await setPolicy(2500);
+    await executor.connect(account).executeSweep([await swap(ONE(100), ONE(90, 6))], 0, ethers.ZeroAddress, 0);
+    // second sweep in the same interval is blocked with zero configuration
+    await expect(executor.connect(account).executeSweep([await swap(ONE(100), ONE(90, 6))], 0, ethers.ZeroAddress, 0))
+      .to.be.revertedWithCustomError(executor, "SweepCooldown");
+  });
+
   it("rejects an amount that exceeds the policy percentage", async function () {
     await setPolicy(1000); // 10% of 1000 = 100 max
     const s = await swap(ONE(101), ONE(90, 6)); // one over the cap

@@ -77,6 +77,24 @@ Three mutations against `SweepPolicyRegistry.sol`, suite `SweepPolicyRegistryCon
 ## Suite total (2026-08-01)
 
 **14 mutations planted, 13 killed, 1 documented survivor** (the redirect guard, redundant
-with the floor). Every Critical/High fix from the pre-audit findings now has an exhaustive,
+with the floor). Every Critical/High fix from `PREAUDIT_FINDINGS.md` now has an exhaustive,
 mutation-proven guarantee under a hostile keeper: C1 (no-theft), H1 (cap composition),
 H3 (paymaster no-free-drain), H4 (slippage floor), plus buyback no-exit and registry control.
+
+## External audit round 2 — finding #2 (token stranding), 2026-08-01
+
+A credible external review found a real fund-lock: a keeper pulls `s.amountIn` but encodes
+a **smaller** `amountIn` in `swapData`, stranding the difference on the executor. The
+existing suite missed it because `MockSwapRouter` always consumed the full approved amount.
+
+Fix: `_requireSelfRoutedUsdgSwap` now requires `encodedAmountIn == s.amountIn`, plus a
+defense-in-depth refund of any unconsumed `tokenIn`. New harness action `strandSweep`
+attempts the attack every fuzz round.
+
+| ID | Mutation | Result | Reading |
+|---|---|---|---|
+| M-STRAND | remove **both** the `encodedAmountIn` check and the leftover refund | **KILLED** | `invariant_executorHoldsNothing` and `invariant_valueConserved` both fail (`meme stranded on executor: 1e12 != 0`). The strand invariant is load-bearing. |
+
+**15 mutations planted, 14 killed, 1 documented survivor.** The strand vector (external #2)
+is now mutation-proven closed. Findings #3 (secure-by-default cooldown) and #4 (yield-pool
+partial-fill refund) are covered by unit test `F3` and the yield-refund path.
