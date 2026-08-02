@@ -1,7 +1,7 @@
 # BagSweep protocol UI (phase 2)
 
 The live-protocol app: connect a wallet, deploy an ERC-4337 smart account, author a sweep
-policy, watch harvests. Gasless, non-custodial, exit anytime. Testnet-first.
+policy, watch sweeps. Gasless, non-custodial, exit anytime. Testnet-first.
 
 Full scope + decisions: `../MAINNET_UI_SCOPE.md`.
 

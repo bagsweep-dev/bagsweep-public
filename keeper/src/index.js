@@ -115,14 +115,14 @@ async function main() {
   // tier isn't the deepest. Read-only, never gates a sweep.
   loop("feeaudit", auditRouteFees, config.auditIntervalMs, 8000);
 
-  // Buyback-and-burn job. OFF until $REAP launches (BUYBACK_ENABLED=1). Cooldown-gated
+  // Buyback-and-burn job. OFF until $SWEEP launches (BUYBACK_ENABLED=1). Cooldown-gated
   // on-chain, so a frequent tick is safe: it no-ops until eligible.
   if (config.buybackEnabled) {
     loop("buyback", runBuyback, config.buybackIntervalMs, 12000);
     console.log(`[boot] Buyback job enabled (every ${config.buybackIntervalMs}ms, cooldown-gated)`);
   }
 
-  // $REAP gate price refresh (dollar-peg). Off unless the gate is on and not forced fixed.
+  // $SWEEP gate price refresh (dollar-peg). Off unless the gate is on and not forced fixed.
   if (config.gate.enabled && config.gate.mode !== "fixed") {
     loop("gateprice", refreshGatePrice, config.gate.refreshMs, 3000);
     console.log(`[boot] Gate price refresh enabled (every ${config.gate.refreshMs}ms, mode=${config.gate.mode})`);
@@ -157,10 +157,10 @@ async function runEvalCycle() {
     try {
       const userOp = await buildUserOp(plan);
       if (!userOp) {
-        // Demand gate: owner not $REAP-entitled. A skip, not a failure — the account
+        // Demand gate: owner not $SWEEP-entitled. A skip, not a failure — the account
         // keeps its ungated self-exit (ownerExecute); the keeper just doesn't automate it.
         stats.sweepsSkippedGate++;
-        console.log(`[sweep] Skipped ${plan.account}: owner not $REAP-entitled (free tier keeps the self-serve exit)`);
+        console.log(`[sweep] Skipped ${plan.account}: owner not $SWEEP-entitled (free tier keeps the self-serve exit)`);
         continue;
       }
       console.log(`[eval] Sweep: ${plan.account}, ${plan.swaps.length} token(s), ~$${plan.estimatedOutputUsd.toFixed(2)} est. output`);

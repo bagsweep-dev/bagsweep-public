@@ -52,9 +52,9 @@ interface IPermit2 {
 /// @notice Presents the Uniswap-V2 `swapExactTokensForTokens` interface that the
 ///         (frozen) SweepBuyback and SweepExecutor self-routed-swap checks require,
 ///         and internally routes through Uniswap V4 via the UniversalRouter's
-///         V4_SWAP command. This lets the V2-shaped protocol contracts buy $REAP
+///         V4_SWAP command. This lets the V2-shaped protocol contracts buy $SWEEP
 ///         from its launchpad-graduated V4 pool (USDG-curve pmav pool: a direct
-///         USDG -> REAP hop) WITHOUT modifying any audited code: sanction this
+///         USDG -> SWEEP hop) WITHOUT modifying any audited code: sanction this
 ///         adapter on SweepBuyback (and optionally SweepExecutor), and the keeper
 ///         builds V2-shaped paths to it exactly as it does for the V3 adapter.
 ///
@@ -251,7 +251,7 @@ contract SweepRouterV4Adapter is Ownable, ReentrancyGuard {
     // ─────────────────────────── Admin (bounded) ───────────────────────────
 
     /// @notice Configure the V4 pool (full PoolKey) used for a token pair, in
-    ///         both directions. For $REAP: the launchpad-graduated pool's exact
+    ///         both directions. For $SWEEP: the launchpad-graduated pool's exact
     ///         key — currencies sorted, its fee, tick spacing, and the launchpad
     ///         hook address, all read from the graduation event / explorer.
     /// @dev    Governance-sensitive: route through the timelock before mainnet

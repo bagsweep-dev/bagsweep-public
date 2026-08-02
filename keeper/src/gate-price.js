@@ -1,7 +1,7 @@
 /**
- * $REAP dollar-peg price + mode (phase 2 of the demand gate).
+ * $SWEEP dollar-peg price + mode (phase 2 of the demand gate).
  *
- * Off-chain only. Pulls priceUsd + liquidity.usd for $REAP from DexScreener (the same
+ * Off-chain only. Pulls priceUsd + liquidity.usd for $SWEEP from DexScreener (the same
  * source the evaluator already uses), keeps a MEDIAN over a rolling window so a single
  * manipulated print cannot move the bar, and selects the mode:
  *   - `fixed`: pool too thin to price -> the gate uses the bootstrap fixed token count.
@@ -24,9 +24,9 @@ function median(nums) {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-/** One DexScreener sample for $REAP: the deepest RH-chain pair. Null on any failure. */
+/** One DexScreener sample for $SWEEP: the deepest RH-chain pair. Null on any failure. */
 async function fetchSample() {
-  const addr = config.gate.reap;
+  const addr = config.gate.sweep;
   if (!addr) return null;
   const url = `https://api.dexscreener.com/latest/dex/tokens/${addr}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(5000) });

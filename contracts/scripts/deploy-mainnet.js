@@ -3,7 +3,7 @@
  *
  * Superset of scripts/deploy.js: deploys the core (registry, executor, factory, paymaster)
  * PLUS the SweepRouterV3Adapter, SweepBuyback, and BagSweepTimelock, then wires the routing,
- * the buyback ($REAP), and the fee sink. It deliberately does NOT:
+ * the buyback ($SWEEP), and the fee sink. It deliberately does NOT:
  *   - flip feeBps on   (fees stay OFF until the runbook's canary passes; launch target 50 bps = 0.5%)
  *   - hand config ownership to the timelock or move the pause to the guardian
  *     (both are staged, human-gated steps in MAINNET_RUNBOOK.md, after the canary)
@@ -11,9 +11,9 @@
  *
  *   npx hardhat run scripts/deploy-mainnet.js --network robinhood
  *
- * Required env: PRIVATE_KEY (deployer), KEEPER_ADDRESS (!= deployer), REAP_ADDRESS.
+ * Required env: PRIVATE_KEY (deployer), KEEPER_ADDRESS (!= deployer), SWEEP_ADDRESS.
  * Optional env: USDG_ADDRESS, WETH_ADDRESS, SWAP_ROUTER02, ENTRY_POINT, GUARDIAN_ADDRESS,
- *   SPONSOR_SIGNER, PAYMASTER_DEPOSIT, TIMELOCK_MIN_DELAY, FEE_USDG_WETH, FEE_WETH_REAP.
+ *   SPONSOR_SIGNER, PAYMASTER_DEPOSIT, TIMELOCK_MIN_DELAY, FEE_USDG_WETH, FEE_WETH_SWEEP.
  */
 const { ethers } = require("hardhat");
 const fs = require("fs");
@@ -43,7 +43,7 @@ async function main() {
 
   // ── preconditions (fail before spending gas) ──
   const keeper = req("KEEPER_ADDRESS");
-  const reap = req("REAP_ADDRESS");
+  const sweep = req("SWEEP_ADDRESS");
   const usdg = process.env.USDG_ADDRESS || CANON.usdg;
   const weth = process.env.WETH_ADDRESS || CANON.weth;
   const swapRouter02 = process.env.SWAP_ROUTER02 || CANON.swapRouter02;
@@ -51,15 +51,15 @@ async function main() {
   const guardian = process.env.GUARDIAN_ADDRESS || deployer.address;
   const timelockDelay = Number(process.env.TIMELOCK_MIN_DELAY || 172800); // 48h
   const feeUsdgWeth = process.env.FEE_USDG_WETH ? Number(process.env.FEE_USDG_WETH) : null;
-  const feeWethReap = process.env.FEE_WETH_REAP ? Number(process.env.FEE_WETH_REAP) : null;
+  const feeWethSweep = process.env.FEE_WETH_SWEEP ? Number(process.env.FEE_WETH_SWEEP) : null;
 
-  for (const [n, v] of [["KEEPER_ADDRESS", keeper], ["REAP_ADDRESS", reap], ["USDG", usdg], ["WETH", weth], ["SWAP_ROUTER02", swapRouter02]]) {
+  for (const [n, v] of [["KEEPER_ADDRESS", keeper], ["SWEEP_ADDRESS", sweep], ["USDG", usdg], ["WETH", weth], ["SWAP_ROUTER02", swapRouter02]]) {
     if (!isAddr(v)) throw new Error(`${n} is not a valid address: ${v}`);
   }
   if (keeper.toLowerCase() === deployer.address.toLowerCase()) {
     throw new Error("KEEPER_ADDRESS must differ from the deployer (deployer != keeper is mandatory on mainnet).");
   }
-  if ((await ethers.provider.getCode(reap)) === "0x") throw new Error(`REAP_ADDRESS has no code on mainnet: ${reap}`);
+  if ((await ethers.provider.getCode(sweep)) === "0x") throw new Error(`SWEEP_ADDRESS has no code on mainnet: ${sweep}`);
   if ((await ethers.provider.getCode(swapRouter02)) === "0x") throw new Error(`SWAP_ROUTER02 has no code on mainnet: ${swapRouter02}`);
   if (timelockDelay < 3600) throw new Error("TIMELOCK_MIN_DELAY must be >= 3600 (contract floor is 1h; 24-48h recommended).");
 
@@ -68,12 +68,12 @@ async function main() {
   console.log("═══════════════════════════════════════");
   console.log("Deployer: ", deployer.address);
   console.log("Keeper:   ", keeper, "(hot signer; key lives ONLY in the keeper service)");
-  console.log("$REAP:    ", reap);
+  console.log("$SWEEP:    ", sweep);
   console.log("Balance:  ", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH\n");
 
   const A = {
     chainId: "4663", network: "robinhood", deployedAt: new Date().toISOString(),
-    deployer: deployer.address, keeper, guardian, usdg, weth, entryPoint, sweepToken: reap,
+    deployer: deployer.address, keeper, guardian, usdg, weth, entryPoint, sweepToken: sweep,
   };
   const wait = async (tx) => (await tx).wait();
 
@@ -124,24 +124,24 @@ async function main() {
   await adapter.waitForDeployment();
   A.sweepRouter = await adapter.getAddress();
   console.log("  ", A.sweepRouter);
-  // Pool fee tiers for the buyback route USDG->WETH->$REAP. Must match the real pools;
+  // Pool fee tiers for the buyback route USDG->WETH->$SWEEP. Must match the real pools;
   // determine them per the runbook (read pool.fee()). Per-meme sweep legs (meme/WETH) are
   // set operationally as memes are supported.
   if (feeUsdgWeth) { await wait(adapter.setPoolFee(usdg, weth, feeUsdgWeth)); console.log("   setPoolFee USDG/WETH", feeUsdgWeth); }
-  if (feeWethReap) { await wait(adapter.setPoolFee(weth, reap, feeWethReap)); console.log("   setPoolFee WETH/$REAP", feeWethReap); }
-  if (!feeUsdgWeth || !feeWethReap) {
-    console.log("  ⚠ FEE_USDG_WETH / FEE_WETH_REAP not both set: buyback quotes will fail until");
-    console.log("    adapter.setPoolFee is called for the USDG/WETH and WETH/$REAP pools.");
+  if (feeWethSweep) { await wait(adapter.setPoolFee(weth, sweep, feeWethSweep)); console.log("   setPoolFee WETH/$SWEEP", feeWethSweep); }
+  if (!feeUsdgWeth || !feeWethSweep) {
+    console.log("  ⚠ FEE_USDG_WETH / FEE_WETH_SWEEP not both set: buyback quotes will fail until");
+    console.log("    adapter.setPoolFee is called for the USDG/WETH and WETH/$SWEEP pools.");
   }
 
-  // ── 6. SweepBuyback (fee sink; enforced buy-and-burn of $REAP) ──
+  // ── 6. SweepBuyback (fee sink; enforced buy-and-burn of $SWEEP) ──
   console.log("▸ SweepBuyback...");
   const buyback = await (await ethers.getContractFactory("SweepBuyback")).deploy(usdg, deployer.address, keeper);
   await buyback.waitForDeployment();
   A.buyback = await buyback.getAddress();
-  await wait(buyback.setSweepToken(reap));           // burn target = the live $REAP
+  await wait(buyback.setSweepToken(sweep));           // burn target = the live $SWEEP
   await wait(buyback.setSanctionedRouter(A.sweepRouter, true));
-  console.log("  ", A.buyback, "| sweepToken=$REAP | router sanctioned");
+  console.log("  ", A.buyback, "| sweepToken=$SWEEP | router sanctioned");
 
   // ── 7. Wire the executor: sanction the adapter, route fees to the burn sink ──
   // The executor skims its capped fee into `treasury`; pointing treasury at SweepBuyback is

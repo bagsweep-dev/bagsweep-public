@@ -8,7 +8,7 @@ const { ethers } = require("hardhat");
 // These are logic tests against a mock; the real-V4 gate is contracts/scripts/forktest-v4.js.
 describe("SweepRouterV4Adapter", function () {
   let owner, account, other;
-  let usdg, reap, weth, permit2, ur, adapter;
+  let usdg, sweep, weth, permit2, ur, adapter;
   const ONE = (n) => ethers.parseUnits(n.toString(), 18);
   const USDG6 = (n) => ethers.parseUnits(n.toString(), 6);
   const DEAD = "0x000000000000000000000000000000000000dEaD";
@@ -18,30 +18,30 @@ describe("SweepRouterV4Adapter", function () {
   beforeEach(async function () {
     [owner, account, other] = await ethers.getSigners();
     usdg = await (await ethers.getContractFactory("MockUSDG")).deploy();
-    reap = await (await ethers.getContractFactory("MockMemeToken")).deploy("Reap", "REAP");
+    sweep = await (await ethers.getContractFactory("MockMemeToken")).deploy("Sweep", "SWEEP");
     weth = await (await ethers.getContractFactory("MockMemeToken")).deploy("Weth", "WETH");
     permit2 = await (await ethers.getContractFactory("MockPermit2")).deploy();
     ur = await (await ethers.getContractFactory("MockUniversalRouter")).deploy(await permit2.getAddress());
     adapter = await (await ethers.getContractFactory("SweepRouterV4Adapter"))
       .deploy(await ur.getAddress(), await permit2.getAddress(), owner.address);
 
-    // Router liquidity + a direct USDG->REAP rate of 1:1 (6dp -> 18dp => out = in * 1e12).
-    await reap.mint(await ur.getAddress(), ONE(1_000_000));
-    await ur.setRate(await usdg.getAddress(), await reap.getAddress(), 10n ** 12n, 1n);
-    await adapter.setPoolKey(await usdg.getAddress(), await reap.getAddress(), 3000, 60, HOOK);
+    // Router liquidity + a direct USDG->SWEEP rate of 1:1 (6dp -> 18dp => out = in * 1e12).
+    await sweep.mint(await ur.getAddress(), ONE(1_000_000));
+    await ur.setRate(await usdg.getAddress(), await sweep.getAddress(), 10n ** 12n, 1n);
+    await adapter.setPoolKey(await usdg.getAddress(), await sweep.getAddress(), 3000, 60, HOOK);
   });
 
   async function fund(who, amt) {
     await usdg.mint(who.address, amt);
     await usdg.connect(who).approve(await adapter.getAddress(), amt);
   }
-  const path = async () => [await usdg.getAddress(), await reap.getAddress()];
+  const path = async () => [await usdg.getAddress(), await sweep.getAddress()];
 
-  it("routes a single-hop USDG->REAP swap and pays the recipient", async function () {
+  it("routes a single-hop USDG->SWEEP swap and pays the recipient", async function () {
     await fund(account, USDG6(100));
     await adapter.connect(account).swapExactTokensForTokens(USDG6(10), ONE(9), await path(), other.address, await DEADLINE());
-    expect(await reap.balanceOf(other.address)).to.equal(ONE(10));       // 10 USDG -> 10 REAP delivered to `to`
-    expect(await reap.balanceOf(await adapter.getAddress())).to.equal(0n); // adapter retains nothing
+    expect(await sweep.balanceOf(other.address)).to.equal(ONE(10));       // 10 USDG -> 10 SWEEP delivered to `to`
+    expect(await sweep.balanceOf(await adapter.getAddress())).to.equal(0n); // adapter retains nothing
     expect(await usdg.balanceOf(await adapter.getAddress())).to.equal(0n);
   });
 
@@ -62,17 +62,17 @@ describe("SweepRouterV4Adapter", function () {
 
   it("enforces the terminal amountOutMin (short fill reverts)", async function () {
     await fund(account, USDG6(10));
-    await expect( // 10 USDG yields 10 REAP; demand 11 -> the router's TAKE_ALL floor reverts
+    await expect( // 10 USDG yields 10 SWEEP; demand 11 -> the router's TAKE_ALL floor reverts
       adapter.connect(account).swapExactTokensForTokens(USDG6(10), ONE(11), await path(), other.address, await DEADLINE())
     ).to.be.revertedWith("MockUR: too little received");
   });
 
   it("only the owner can set pool keys / hook data", async function () {
     await expect(
-      adapter.connect(other).setPoolKey(await usdg.getAddress(), await reap.getAddress(), 500, 10, HOOK)
+      adapter.connect(other).setPoolKey(await usdg.getAddress(), await sweep.getAddress(), 500, 10, HOOK)
     ).to.be.revertedWithCustomError(adapter, "OwnableUnauthorizedAccount");
     await expect(
-      adapter.connect(other).setHookData(await usdg.getAddress(), await reap.getAddress(), "0x01")
+      adapter.connect(other).setHookData(await usdg.getAddress(), await sweep.getAddress(), "0x01")
     ).to.be.revertedWithCustomError(adapter, "OwnableUnauthorizedAccount");
   });
 
@@ -83,7 +83,7 @@ describe("SweepRouterV4Adapter", function () {
   });
 
   it("poolKeyFor reports configured vs unset pairs (keeper route selection)", async function () {
-    const [set, key] = await adapter.poolKeyFor(await usdg.getAddress(), await reap.getAddress());
+    const [set, key] = await adapter.poolKeyFor(await usdg.getAddress(), await sweep.getAddress());
     expect(set).to.equal(true);
     expect(key.fee).to.equal(3000);
     expect(key.hooks).to.equal(ethers.getAddress(HOOK));
@@ -91,20 +91,20 @@ describe("SweepRouterV4Adapter", function () {
     expect(set2).to.equal(false);
   });
 
-  it("routes a multi-hop USDG->WETH->REAP path, holding the intermediate on the adapter", async function () {
-    // USDG(6dp)->WETH(18dp) at *1e12, WETH->REAP at *2  =>  10 USDG -> 10 WETH -> 20 REAP
+  it("routes a multi-hop USDG->WETH->SWEEP path, holding the intermediate on the adapter", async function () {
+    // USDG(6dp)->WETH(18dp) at *1e12, WETH->SWEEP at *2  =>  10 USDG -> 10 WETH -> 20 SWEEP
     await weth.mint(await ur.getAddress(), ONE(1_000_000));
     await ur.setRate(await usdg.getAddress(), await weth.getAddress(), 10n ** 12n, 1n);
-    await ur.setRate(await weth.getAddress(), await reap.getAddress(), 2n, 1n);
+    await ur.setRate(await weth.getAddress(), await sweep.getAddress(), 2n, 1n);
     await adapter.setPoolKey(await usdg.getAddress(), await weth.getAddress(), 500, 10, HOOK);
-    await adapter.setPoolKey(await weth.getAddress(), await reap.getAddress(), 3000, 60, HOOK);
+    await adapter.setPoolKey(await weth.getAddress(), await sweep.getAddress(), 3000, 60, HOOK);
 
     await fund(account, USDG6(10));
-    const p = [await usdg.getAddress(), await weth.getAddress(), await reap.getAddress()];
+    const p = [await usdg.getAddress(), await weth.getAddress(), await sweep.getAddress()];
     await adapter.connect(account).swapExactTokensForTokens(USDG6(10), ONE(19), p, other.address, await DEADLINE());
-    expect(await reap.balanceOf(other.address)).to.equal(ONE(20));
+    expect(await sweep.balanceOf(other.address)).to.equal(ONE(20));
     expect(await weth.balanceOf(await adapter.getAddress())).to.equal(0n); // intermediate fully consumed
-    expect(await reap.balanceOf(await adapter.getAddress())).to.equal(0n);
+    expect(await sweep.balanceOf(await adapter.getAddress())).to.equal(0n);
   });
 
   it("revokes the Permit2 ERC-20 allowance after the swap", async function () {
@@ -113,21 +113,21 @@ describe("SweepRouterV4Adapter", function () {
     expect(await usdg.allowance(await adapter.getAddress(), await permit2.getAddress())).to.equal(0n);
   });
 
-  it("the frozen SweepBuyback buys back and burns $REAP through the adapter", async function () {
+  it("the frozen SweepBuyback buys back and burns $SWEEP through the adapter", async function () {
     const buyback = await (await ethers.getContractFactory("SweepBuyback"))
       .deploy(await usdg.getAddress(), owner.address, owner.address); // owner is the keeper
     await usdg.mint(await buyback.getAddress(), USDG6(100));           // accumulated fees
-    await buyback.setSweepToken(await reap.getAddress());
+    await buyback.setSweepToken(await sweep.getAddress());
     await buyback.setSanctionedRouter(await adapter.getAddress(), true);
 
-    const usdgIn = USDG6(10); // -> 10 REAP
+    const usdgIn = USDG6(10); // -> 10 SWEEP
     const iface = new ethers.Interface(["function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"]);
     const swapData = iface.encodeFunctionData("swapExactTokensForTokens", [
       usdgIn, ONE(9), await path(), await buyback.getAddress(), await DEADLINE(),
     ]);
     await expect(buyback.buybackAndBurn(usdgIn, ONE(9), await adapter.getAddress(), swapData))
       .to.emit(buyback, "BuybackBurned");
-    expect(await reap.balanceOf(DEAD)).to.equal(ONE(10));
+    expect(await sweep.balanceOf(DEAD)).to.equal(ONE(10));
     expect(await usdg.balanceOf(await buyback.getAddress())).to.equal(USDG6(90));
   });
 });

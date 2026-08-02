@@ -67,8 +67,8 @@ export const config = {
   sweepCooldownMs:   parseInt(process.env.SWEEP_COOLDOWN_MS   || "300000"),  // 5 min
   auditIntervalMs:   parseInt(process.env.AUDIT_INTERVAL_MS   || "1800000"), // 30 min: cross-tier fee sanity check
 
-  // ── Buyback-and-burn (SweepBuyback: swap accumulated USDG fees into $REAP, burn) ──
-  // $REAP is read from buyback.sweepToken() on-chain (launchpad-created), so no token
+  // ── Buyback-and-burn (SweepBuyback: swap accumulated USDG fees into $SWEEP, burn) ──
+  // $SWEEP is read from buyback.sweepToken() on-chain (launchpad-created), so no token
   // address is configured here. OFF until launch: set BUYBACK_ENABLED=1 + BUYBACK_ADDR.
   buyback:            process.env.BUYBACK_ADDR         || deployed.buyback || "",
   buybackEnabled:     process.env.BUYBACK_ENABLED === "1",
@@ -76,20 +76,20 @@ export const config = {
   buybackSlippageBps: parseInt(process.env.BUYBACK_SLIPPAGE_BPS || "300"),    // 3%
   minBuybackUsd6:     BigInt(Math.floor(parseFloat(process.env.MIN_BUYBACK_USD || "10") * 1e6)), // min USDG (6dp) to bother
 
-  // ── $REAP demand gate (off-chain sponsor entitlement) ──
+  // ── $SWEEP demand gate (off-chain sponsor entitlement) ──
   // OFF by default (GATE_ENABLED unset => all keeper sweeps sponsored, current behaviour).
   // When ON, the paymaster sponsor-signer sponsors a gasless sweep ONLY if the account's
-  // OWNER holds >= `minHold` $REAP. A non-entitled account is denied NOTHING on-chain: it
+  // OWNER holds >= `minHold` $SWEEP. A non-entitled account is denied NOTHING on-chain: it
   // keeps the ungated self-exit (SmartAccount.ownerExecute); the keeper just does not
   // automate a gasless sweep for it. Bootstrap uses a FIXED whole-token threshold (the
-  // REAP/WETH pool is too thin to price a dollar-peg yet); the smoothed-price peg +
+  // SWEEP/WETH pool is too thin to price a dollar-peg yet); the smoothed-price peg +
   // retention snapshot land later.
   gate: {
     enabled:    process.env.GATE_ENABLED === "1",
-    reap:       process.env.REAP_ADDR || deployed.reap || "",
+    sweep:       process.env.SWEEP_ADDR || deployed.sweep || "",
     minHold: (() => {
-      if (process.env.REAP_MIN_HOLD_WEI) return BigInt(process.env.REAP_MIN_HOLD_WEI);
-      return BigInt(process.env.REAP_MIN_HOLD || "0") * (10n ** 18n); // whole-token threshold -> wei
+      if (process.env.SWEEP_MIN_HOLD_WEI) return BigInt(process.env.SWEEP_MIN_HOLD_WEI);
+      return BigInt(process.env.SWEEP_MIN_HOLD || "0") * (10n ** 18n); // whole-token threshold -> wei
     })(),
     cacheTtlMs: parseInt(process.env.GATE_CACHE_TTL_MS || "60000"),   // per-account entitlement cache
     failOpen:   process.env.GATE_FAIL_OPEN !== "0",  // on a balance-read error, sponsor anyway (don't deny a paying user)

@@ -20,3 +20,4 @@ keeper/entitlements.json
 # Tooling / editor cruft
 .qoder/
 *.log
+repowiki/

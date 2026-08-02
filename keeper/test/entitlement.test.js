@@ -1,5 +1,5 @@
 /**
- * $REAP demand-gate tests. Uses a minimal fake provider so ethers.Contract reads
+ * $SWEEP demand-gate tests. Uses a minimal fake provider so ethers.Contract reads
  * (owner(), balanceOf()) resolve without a live RPC, and a mocked fetch for the price feed.
  */
 import { test } from "node:test";
@@ -12,8 +12,8 @@ import fs from "node:fs";
 const STORE = path.join(os.tmpdir(), `bagsweep-gate-${process.pid}.json`);
 try { fs.rmSync(STORE, { force: true }); } catch {}
 process.env.GATE_ENABLED = "1";
-process.env.REAP_ADDR = "0x1111111111111111111111111111111111111111";
-process.env.REAP_MIN_HOLD = "250000";
+process.env.SWEEP_ADDR = "0x1111111111111111111111111111111111111111";
+process.env.SWEEP_MIN_HOLD = "250000";
 process.env.GATE_STORE_PATH = STORE;
 process.env.GATE_TARGET_USD = "25";
 process.env.GATE_LIQ_FLOOR_USD = "8000";
@@ -53,7 +53,7 @@ function mockFetch(priceUsd, liqUsd) {
 }
 
 // ── fixed / bootstrap mode (no price feed) ──
-test("gate: REAP_MIN_HOLD parses whole tokens to wei", () => {
+test("gate: SWEEP_MIN_HOLD parses whole tokens to wei", () => {
   assert.equal(config.gate.minHold, TOK(250000));
 });
 

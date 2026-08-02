@@ -1,5 +1,5 @@
 /**
- * BagSweep Keeper — $REAP demand gate (off-chain sponsor entitlement).
+ * BagSweep Keeper — $SWEEP demand gate (off-chain sponsor entitlement).
  *
  * The paymaster sponsor-signer sponsors a gasless sweep only for accounts whose OWNER is
  * entitled. Read-only: balances are read from the wallet and never moved or escrowed. This
@@ -22,7 +22,7 @@ import { getEntryTokensWei, getPriceStats } from "./gate-price.js";
 const OWNER_ABI = ["function owner() view returns (address)"];
 const ERC20_ABI = ["function balanceOf(address) view returns (uint256)"];
 
-let reap = null;
+let sweep = null;
 const cache = new Map(); // account(lowercased) -> { entitled: bool, ts: number }
 const store = new Map(); // owner(lowercased)   -> { qualifyingBalance: bigint, qualifiedAt, lastSeen }
 
@@ -66,18 +66,18 @@ function saveStore() {
  */
 export function initEntitlement(provider) {
   if (!config.gate.enabled) {
-    console.log("[gate] $REAP demand gate OFF — all sweeps sponsored");
+    console.log("[gate] $SWEEP demand gate OFF — all sweeps sponsored");
     return;
   }
-  if (!config.gate.reap || config.gate.minHold <= 0n) {
-    console.warn("[gate] GATE_ENABLED but REAP_ADDR / REAP_MIN_HOLD not set — gate inert (fail-open)");
+  if (!config.gate.sweep || config.gate.minHold <= 0n) {
+    console.warn("[gate] GATE_ENABLED but SWEEP_ADDR / SWEEP_MIN_HOLD not set — gate inert (fail-open)");
     return;
   }
-  reap = new ethers.Contract(config.gate.reap, ERC20_ABI, provider);
+  sweep = new ethers.Contract(config.gate.sweep, ERC20_ABI, provider);
   loadStore();
   console.log(
-    `[gate] $REAP demand gate ON — mode=${config.gate.mode}, target=$${config.gate.targetUsd}, ` +
-    `bootstrap floor=${config.gate.minHold / (10n ** 18n)} $REAP, ${store.size} qualified in store (${config.gate.reap})`
+    `[gate] $SWEEP demand gate ON — mode=${config.gate.mode}, target=$${config.gate.targetUsd}, ` +
+    `bootstrap floor=${config.gate.minHold / (10n ** 18n)} $SWEEP, ${store.size} qualified in store (${config.gate.sweep})`
   );
 }
 
@@ -91,7 +91,7 @@ export function initEntitlement(provider) {
  * @returns {Promise<boolean>}
  */
 export async function isEntitled(account, provider, ownerHint) {
-  if (!config.gate.enabled || !reap) return true;
+  if (!config.gate.enabled || !sweep) return true;
 
   const key = account.toLowerCase();
   const now = Date.now();
@@ -103,7 +103,7 @@ export async function isEntitled(account, provider, ownerHint) {
     let owner = ownerHint;
     if (!owner) owner = await new ethers.Contract(account, OWNER_ABI, provider).owner();
     owner = owner.toLowerCase();
-    const bal = await reap.balanceOf(owner);
+    const bal = await sweep.balanceOf(owner);
 
     const rec = store.get(owner);
     if (rec && bal >= rec.qualifyingBalance) {
@@ -137,7 +137,7 @@ export async function isEntitled(account, provider, ownerHint) {
  */
 export function getGateStats() {
   const base = {
-    enabled: config.gate.enabled && !!reap,
+    enabled: config.gate.enabled && !!sweep,
     qualified: store.size,
   };
   return config.gate.enabled ? { ...base, ...getPriceStats() } : base;

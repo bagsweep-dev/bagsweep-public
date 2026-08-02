@@ -43,7 +43,7 @@ Manual wiring after deploy (owner txs, or via the timelock once ownership moves)
 - `executor.setSanctionedRouter(mockRouter, true)` (sweeps revert until a router is sanctioned).
 - For STOCKS tests: deploy a mock stock token, `executor.setStockRouter(mockRouter2)`, `executor.setSanctionedStock(mockStock, true)`.
 - Fund the paymaster: `paymaster.deposit({value: 0.1 ether})` and `paymaster.addStake(…)`.
-- Fee/buyback (optional, for §4 S4): deploy a mock `$REAP`, deploy `SweepBuyback`, `buyback.setSweepToken($REAP)`, `buyback.setSanctionedRouter(reapRouter, true)`, `executor.setTreasury(buyback)`, `executor.setFeeBps(50)`.
+- Fee/buyback (optional, for §4 S4): deploy a mock `$SWEEP`, deploy `SweepBuyback`, `buyback.setSweepToken($SWEEP)`, `buyback.setSanctionedRouter(sweepRouter, true)`, `executor.setTreasury(buyback)`, `executor.setFeeBps(50)`.
 
 ---
 
@@ -67,7 +67,7 @@ Use freshly-created accounts + mock tokens on testnet. (The mainnet test wallets
 | S1 | USDG_YIELD sweep: keeper submits `execute(executor,0,executeSweep([meme swap], USDG_YIELD, 0))` as a UserOp | meme sold, USDG (net of fee) returns to the account; `SweepExecuted` emitted |
 | S2 | STOCKS sweep | meme → USDG → sanctioned stock; stock returns to the account |
 | S3 | SPLIT_50_50 | half to yield, half to stock |
-| S4 | Fee on (feeBps=50, treasury=buyback) | `FeeCollected` emitted, 0.5% of proceeds skimmed to `SweepBuyback`; then `buyback.buybackAndBurn(...)` burns $REAP, `BuybackBurned` emitted |
+| S4 | Fee on (feeBps=50, treasury=buyback) | `FeeCollected` emitted, 0.5% of proceeds skimmed to `SweepBuyback`; then `buyback.buybackAndBurn(...)` burns $SWEEP, `BuybackBurned` emitted |
 | S5 | Paymaster-sponsored | the keeper UserOp is gas-sponsored; `totalGasSponsored` increases |
 
 Verify each by reading events and account balances, and that the UserOp actually routed through the EntryPoint (not a direct call).
@@ -86,7 +86,7 @@ Verify each by reading events and account balances, and that the UserOp actually
 | N6 | Un-whitelisted token / mismatched destination | `TokenNotAllowed` / `DestinationMismatch` |
 | N7 | **Timelock:** call `executor.setFeeBps(…)` from the old EOA after ownership moved | reverts `OwnableUnauthorizedAccount`; schedule via timelock, execute before delay reverts, after `minDelay` succeeds; a queued `setFeeBps(101)` still reverts `FeeExceedsMax` on execute |
 | N8 | **deployer ≠ keeper:** run `deploy.js` with `chainId 4663` (or force the mainnet branch) and `KEEPER_ADDRESS == deployer` | deploy script throws |
-| N9 | **Buyback no-exit:** `buyback.rescue(USDG, …)` and `rescue($REAP, …)` | both revert `CannotRescueProtocolAsset`; USDG only leaves via `buybackAndBurn` |
+| N9 | **Buyback no-exit:** `buyback.rescue(USDG, …)` and `rescue($SWEEP, …)` | both revert `CannotRescueProtocolAsset`; USDG only leaves via `buybackAndBurn` |
 | N10 | **Paymaster (after fix A):** an account with an active policy submits a UserOp targeting something other than the executor/registry, or a non-keeper submits | rejected (`TargetNotEligible` / `NotKeeper`). Before the fix, document that it is currently sponsored (the bug). |
 | N11 | Guardian pause: pause the registry, confirm new `setPolicy` reverts `Paused`, confirm existing sweeps and `ownerExecute` are unaffected | pause scoped to new policy registration only |
 

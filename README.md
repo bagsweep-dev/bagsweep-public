@@ -1,5 +1,5 @@
 <p align="center"><strong>BagSweep</strong></p>
-<p align="center">The take-profit layer for on-chain meme traders. Author one policy, and a bounded keeper harvests your profits into real yield or tokenized stocks, gaslessly. Keys stay yours, always.</p>
+<p align="center">The take-profit layer for on-chain meme traders. Author one policy, and a bounded keeper sweeps your profits into real yield or tokenized stocks, gaslessly. Keys stay yours, always.</p>
 
 <p align="center">
   <a href="https://bagsweep.xyz">bagsweep.xyz</a> ·
@@ -16,7 +16,7 @@
 
 Traders ride a 10x back to zero because taking profit means watching charts and signing at the right moment. BagSweep makes it a policy instead.
 
-You deploy an ERC-4337 smart account, author one sweep policy (for example, "when a token is up 300%, harvest 5% into USDG yield"), and a gasless, paymaster-sponsored keeper executes it around the clock. The keeper is mathematically bounded: it can only ever execute the exact policy you authored, within your caps, into the destinations you chose. It cannot drain your wallet, seize funds, or act outside your policy, and `ownerExecute()` lets you exit any position yourself at any time with no dependency on the keeper or a bundler. Keys stay yours.
+You deploy an ERC-4337 smart account, author one sweep policy (for example, "when a token is up 300%, sweep 5% into USDG yield"), and a gasless, paymaster-sponsored keeper executes it around the clock. The keeper is mathematically bounded: it can only ever execute the exact policy you authored, within your caps, into the destinations you chose. It cannot drain your wallet, seize funds, or act outside your policy, and `ownerExecute()` lets you exit any position yourself at any time with no dependency on the keeper or a bundler. Keys stay yours.
 
 ## How it works
 
@@ -48,13 +48,13 @@ The core invariant, verified under adversarial review: **a fully compromised kee
 
 Secrets live in gitignored `.env` files (`contracts/.env`, `keeper/.env`). Never commit them.
 
-## The token: $REAP
+## The token: $SWEEP
 
-$REAP captures protocol revenue through an **enforced** buy-and-burn: a share of the harvest fee buys $REAP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. More usage means more burn.
+$SWEEP captures protocol revenue through an **enforced** buy-and-burn: a share of the sweep fee buys $SWEEP on the open market and burns it, on-chain, with no owner-withdrawal path in the buyback contract. More usage means more burn.
 
-Holding $REAP also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $REAP or not.
+Holding $SWEEP also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $SWEEP or not.
 
-**Not yet live.** The official $REAP contract address will be published here at launch. Until then, any token calling itself $REAP is not ours.
+**Not yet live.** The official $SWEEP contract address will be published here at launch. Until then, any token calling itself $SWEEP is not ours.
 
 ## Phase-1 tracker
 
@@ -74,4 +74,4 @@ The read-only tracker at `app.bagsweep.xyz` is the demand test: paste any Robinh
 
 ## License
 
-**Source-available, not open source.** This code is published so anyone can read, audit, and independently verify the protocol, and run it locally against test networks. Deploying it, using it in production or commercially, or presenting a derivative as BagSweep or $REAP requires written permission. See `LICENSE`.
+**Source-available, not open source.** This code is published so anyone can read, audit, and independently verify the protocol, and run it locally against test networks. Deploying it, using it in production or commercially, or presenting a derivative as BagSweep or $SWEEP requires written permission. See `LICENSE`.

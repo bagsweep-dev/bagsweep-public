@@ -32,43 +32,43 @@ test("planBuyback: skips when the spendable amount is below the minimum", () => 
   assert.equal(planBuyback({ ...base, usdgBalance: 40_000000n }).eligible, false);
 });
 
-// ── buyback swap routing (multi-hop USDG -> WETH -> $REAP) ──
+// ── buyback swap routing (multi-hop USDG -> WETH -> $SWEEP) ──
 const USDG = "0x" + "1".repeat(40);
 const WETH = "0x" + "2".repeat(40);
-const REAP = "0x" + "3".repeat(40);
+const SWEEP = "0x" + "3".repeat(40);
 const pair = (a, b) => new Set([a, b]);
 
-test("planBuybackSwap: routes USDG -> WETH -> $REAP when there is no direct USDG/$REAP pool", async () => {
-  // the real launch case: $REAP pairs with WETH, so there is no direct USDG/$REAP pool
+test("planBuybackSwap: routes USDG -> WETH -> $SWEEP when there is no direct USDG/$SWEEP pool", async () => {
+  // the real launch case: $SWEEP pairs with WETH, so there is no direct USDG/$SWEEP pool
   const feeFor = async (a, b) => {
     const p = pair(a, b);
-    if (p.has(USDG) && p.has(REAP)) return 0;
+    if (p.has(USDG) && p.has(SWEEP)) return 0;
     if (p.has(USDG) && p.has(WETH)) return 500;
-    if (p.has(WETH) && p.has(REAP)) return 3000;
+    if (p.has(WETH) && p.has(SWEEP)) return 3000;
     return 0;
   };
   const swap = await planBuybackSwap({
-    usdg: USDG, sweepToken: REAP, hubs: [WETH], amountIn: 200_000000n, slippageBps: 300,
+    usdg: USDG, sweepToken: SWEEP, hubs: [WETH], amountIn: 200_000000n, slippageBps: 300,
     feeFor, quote: async () => 1000n,
   });
-  assert.deepEqual(swap.path, [USDG, WETH, REAP]);
+  assert.deepEqual(swap.path, [USDG, WETH, SWEEP]);
   assert.deepEqual(swap.fees, [500, 3000]);
   assert.equal(swap.minOut, (1000n * 9700n) / 10000n); // 3% slippage floor
 });
 
 test("planBuybackSwap: uses the direct pool when one exists", async () => {
-  const feeFor = async (a, b) => (pair(a, b).has(USDG) && pair(a, b).has(REAP)) ? 500 : 0;
+  const feeFor = async (a, b) => (pair(a, b).has(USDG) && pair(a, b).has(SWEEP)) ? 500 : 0;
   const swap = await planBuybackSwap({
-    usdg: USDG, sweepToken: REAP, hubs: [WETH], amountIn: 1n, slippageBps: 300,
+    usdg: USDG, sweepToken: SWEEP, hubs: [WETH], amountIn: 1n, slippageBps: 300,
     feeFor, quote: async () => 1000n,
   });
-  assert.deepEqual(swap.path, [USDG, REAP]);
+  assert.deepEqual(swap.path, [USDG, SWEEP]);
   assert.deepEqual(swap.fees, [500]);
 });
 
 test("planBuybackSwap: null when neither a direct pool nor a hub route exists", async () => {
   const swap = await planBuybackSwap({
-    usdg: USDG, sweepToken: REAP, hubs: [WETH], amountIn: 1n, slippageBps: 300,
+    usdg: USDG, sweepToken: SWEEP, hubs: [WETH], amountIn: 1n, slippageBps: 300,
     feeFor: async () => 0, quote: async () => 0n,
   });
   assert.equal(swap, null);

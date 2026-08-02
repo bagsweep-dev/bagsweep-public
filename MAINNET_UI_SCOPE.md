@@ -17,7 +17,7 @@ bounded keeper on, watch harvests. Gasless, keys stay yours, exit anytime.
 3. **Author policy** — form -> `registry.setPolicy(pct, minUsd, mode, dest, tokenWhitelist, maxSlippageBps)`, submitted as a UserOp through the account (gasless via paymaster). MVP: `dest = YIELD`.
 4. **Dashboard** — active policy (`getPolicy`), keeper activity, bounded-keeper explainer.
 5. **Manage / exit** — `revokePolicy`, and `ownerExecute` (self-exit any position, no keeper/bundler needed).
-6. **Transparency (v2)** — `$REAP` buyback-burn stats.
+6. **Transparency (v2)** — `$SWEEP` buyback-burn stats.
 
 ## The long pole
 The AA path (custom `SmartAccount` adapter for permissionless: factory args, `encodeCalls` via

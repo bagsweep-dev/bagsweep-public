@@ -1,14 +1,14 @@
-// Launch wiring for the enforced buy-and-burn, around a LAUNCHPAD-created $REAP.
+// Launch wiring for the enforced buy-and-burn, around a LAUNCHPAD-created $SWEEP.
 //
 // ⚠ DO NOT RUN until the protocol is audited, live on mainnet, AND the phase-1 demand
-//   signal has validated (see REAP_token_complete_profile PRE-LAUNCH guard + token
+//   signal has validated (see SWEEP_token_complete_profile PRE-LAUNCH guard + token
 //   strategy). This deploys the fee sink and turns the protocol fee on (a real launch).
 //
-// $REAP is created on a launchpad (fair launch, 1B supply), NOT here. Pass its address as
-// REAP_ADDR. Seeding/locking the USDG/$REAP V3 pool is done on the launchpad / DEX; this
+// $SWEEP is created on a launchpad (fair launch, 1B supply), NOT here. Pass its address as
+// SWEEP_ADDR. Seeding/locking the USDG/$SWEEP V3 pool is done on the launchpad / DEX; this
 // script only deploys + wires SweepBuyback and points the executor's fee at it.
 //
-// Required env: REAP_ADDR, USDG_ADDR, SWEEP_ROUTER (adapter), EXECUTOR_ADDR, KEEPER_ADDRESS,
+// Required env: SWEEP_ADDR, USDG_ADDR, SWEEP_ROUTER (adapter), EXECUTOR_ADDR, KEEPER_ADDRESS,
 //               TIMELOCK_ADDR. Optional: FEE_BPS (default 50 = 0.5%, must be <= 100).
 const { ethers } = require("hardhat");
 
@@ -20,7 +20,7 @@ function need(name) {
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const REAP = need("REAP_ADDR");         // launchpad-created token
+  const SWEEP = need("SWEEP_ADDR");         // launchpad-created token
   const USDG = need("USDG_ADDR");
   const ADAPTER = need("SWEEP_ROUTER");   // SweepRouterV3Adapter (the sanctioned router)
   const EXECUTOR = need("EXECUTOR_ADDR");
@@ -30,7 +30,7 @@ async function main() {
   if (FEE_BPS > 100) throw new Error("FEE_BPS must be <= 100 (1%)");
 
   console.log(`Deployer: ${deployer.address}`);
-  console.log(`$REAP:    ${REAP} (launchpad)`);
+  console.log(`$SWEEP:    ${SWEEP} (launchpad)`);
 
   // 1. Deploy the fee sink (owner = deployer for wiring; handed to the timelock at the end).
   const buyback = await (await ethers.getContractFactory("SweepBuyback")).deploy(USDG, deployer.address, KEEPER);
@@ -38,8 +38,8 @@ async function main() {
   const buybackAddr = await buyback.getAddress();
   console.log(`SweepBuyback: ${buybackAddr}`);
 
-  // 2. Point the burn target at $REAP (ONE-SHOT, immutable after this) and sanction the adapter.
-  await (await buyback.setSweepToken(REAP)).wait();
+  // 2. Point the burn target at $SWEEP (ONE-SHOT, immutable after this) and sanction the adapter.
+  await (await buyback.setSweepToken(SWEEP)).wait();
   await (await buyback.setSanctionedRouter(ADAPTER, true)).wait();
   console.log("setSweepToken + setSanctionedRouter done");
 
@@ -55,8 +55,8 @@ async function main() {
   console.log(`buyback ownership -> timelock ${TIMELOCK}`);
 
   console.log("\nNEXT (manual, via the timelock):");
-  console.log(`  - adapter.setPoolFee(${USDG}, ${REAP}, <feeTier>)  // so the keeper can quote/route USDG->$REAP`);
-  console.log(`  - confirm the USDG/$REAP V3 pool is seeded + LP locked/burned on the launchpad`);
+  console.log(`  - adapter.setPoolFee(${USDG}, ${SWEEP}, <feeTier>)  // so the keeper can quote/route USDG->$SWEEP`);
+  console.log(`  - confirm the USDG/$SWEEP V3 pool is seeded + LP locked/burned on the launchpad`);
   console.log(`  - keeper env: BUYBACK_ENABLED=1, BUYBACK_ADDR=${buybackAddr}`);
 }
 
