@@ -440,7 +440,12 @@ contract SweepExecutor is ISweepExecutor, Ownable, ReentrancyGuard {
         emit MinSweepIntervalSet(_interval);
     }
 
-    /// @dev Rescue stuck tokens (admin only).
+    /// @notice Rescue tokens that end up on this stateless executor (a stray transfer,
+    ///         or a residual from a misbehaving venue). Governance-sensitive, like the
+    ///         other owner setters: on mainnet the owner is the BagSweepTimelock, so a
+    ///         rescue is delayed and visible on-chain, not a hot-key grab. In normal
+    ///         operation nothing is held here to rescue: sweeps are atomic and refund
+    ///         any unconsumed input, so the executor holds no user funds between calls.
     function rescueTokens(address token, uint256 amount, address to) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
         emit TokensRescued(token, amount, to);

@@ -36,6 +36,10 @@ declares the reference price for each sweep, and the on-chain slippage floor is 
 that declared price. **A compromised keeper can declare an artificially low price and route a
 sweep through a manipulated or sandwiched pool, extracting value from that sweep.**
 
+This applies to **both swap legs**: the meme-to-USDG swap, and for STOCKS or SPLIT_50_50
+destinations the USDG-to-stock swap, which is bounded by a keeper-declared stock quote the
+same way. Both are capped by your policy percentage; neither is protected on execution price.
+
 This is bounded, not unbounded. The keeper can never sweep more than the **percentage cap you
 authored** per cooldown interval, and can never touch tokens outside your policy or reach your
 account directly. So the worst case is losing up to your authored percentage of a position's
