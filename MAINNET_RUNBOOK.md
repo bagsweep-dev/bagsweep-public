@@ -9,7 +9,7 @@ Canonical mainnet addresses used below:
 - Uniswap V3 SwapRouter02 `0xCaf681a66D020601342297493863E78C959E5cb2`
 - Uniswap V3 QuoterV2 `0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7`
 - EntryPoint v0.8 `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`
-- $SWEPT `<SWEEP_ADDRESS, set at launch>`
+- $SWEPT `0x4f2b3Af4eD8b89E1957c68524D2dbaf0521b20Bf`
 
 ---
 
@@ -64,7 +64,7 @@ cd contracts
 PRIVATE_KEY=<deployer> \
 KEEPER_ADDRESS=<keeper> \
 GUARDIAN_ADDRESS=<guardian> \
-SWEEP_ADDRESS=<SWEEP_ADDRESS, set at launch> \
+SWEEP_ADDRESS=0x4f2b3Af4eD8b89E1957c68524D2dbaf0521b20Bf \
 FEE_USDG_WETH=<from step 1> FEE_WETH_SWEEP=<from step 1> \
 TIMELOCK_MIN_DELAY=172800 \
 npx hardhat run scripts/deploy-mainnet.js --network robinhood
@@ -100,7 +100,7 @@ BUYBACK_ENABLED=1
 
 # $SWEPT demand gate — OFF by default (unset = every sweep sponsored, as today).
 # GATE_ENABLED=1
-# SWEEP_ADDR=<SWEEP_ADDRESS, set at launch>
+# SWEEP_ADDR=0x4f2b3Af4eD8b89E1957c68524D2dbaf0521b20Bf
 # SWEEP_MIN_HOLD=250000     # whole $SWEPT the account OWNER must hold to get GASLESS keeper sweeps (bootstrap fixed-count)
 # GATE_FAIL_OPEN=1         # on a balance-read error, sponsor anyway (default; set 0 to fail closed)
 ```

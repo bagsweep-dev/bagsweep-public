@@ -54,7 +54,7 @@ $SWEPT captures protocol revenue through an **enforced** buy-and-burn: a share o
 
 Holding $SWEPT also unlocks the optional gasless keeper tier. That is a read of the balance in your own wallet, so there is no staking, no lockup, and no escrow, and your keys stay yours. The read-only tracker, the self-serve sweep, and the `ownerExecute` exit stay open to everyone, whether they hold $SWEPT or not.
 
-**Not yet live.** The official $SWEPT contract address will be published here at launch. Until then, any token calling itself $SWEPT is not ours.
+**Live on Robinhood Chain.** The one official $SWEPT contract is `0x4f2b3Af4eD8b89E1957c68524D2dbaf0521b20Bf` (fair launch via Pons, 1B fixed supply, ownerless). Any other contract calling itself $SWEPT is an impersonator.
 
 ## Phase-1 tracker
 
