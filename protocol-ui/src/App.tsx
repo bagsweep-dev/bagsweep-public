@@ -14,6 +14,10 @@ import {
   getSmartAccountAddress,
   isDeployed,
   getSweepExecutor,
+  getPolicy,
+  getSweeps,
+  getBurnTotal,
+  getCooldown,
   encodeSetPolicy,
   encodeRevoke,
   assertBytecodeInSync,
@@ -37,6 +41,8 @@ function useAccountState(owner: Address): UseQueryResult<AcctState> {
 
 export default function App() {
   const { address, isConnected } = useAccount();
+  // Dev-only: preview any account's read-only dashboard without a wallet (?dash=0x…).
+  const dashPreview = import.meta.env.DEV ? new URLSearchParams(location.search).get("dash") : null;
   return (
     <div className="app">
       <header className="topbar">
@@ -48,8 +54,14 @@ export default function App() {
         </div>
       </header>
       <main>
-        <Connect />
-        {isConnected && address && <Protocol owner={address} />}
+        {dashPreview ? (
+          <Dashboard account={dashPreview as Address} />
+        ) : (
+          <>
+            <Connect />
+            {isConnected && address && <Protocol owner={address} />}
+          </>
+        )}
       </main>
       <footer className="foot">
         Non-custodial. Keys stay yours. Owner actions are direct transactions; the keeper's
@@ -80,6 +92,7 @@ function Protocol({ owner }: { owner: Address }) {
     <>
       <SmartAccount state={state} owner={owner} />
       <PolicyForm state={state} />
+      {state.data?.addr && <Dashboard account={state.data.addr} />}
     </>
   );
 }
@@ -250,6 +263,71 @@ function PolicyForm({ state }: { state: UseQueryResult<AcctState> }) {
           onRun={(w) => w({ address: s!.addr, abi: accountAbi, functionName: "ownerExecute", args: [ADDR.registry, 0n, encodeRevoke()], chainId: rhChain.id })}
         />
       </div>
+    </section>
+  );
+}
+
+// ── Step 4: live dashboard — active policy, the keeper's sweep history, and the
+// fee -> buyback -> burn flywheel. All read straight from chain; renders only once a
+// policy is active, so it is the natural reward after authoring one.
+const DEST_LABEL = ["USDG yield", "Stocks", "Split 50/50"];
+const MODE_LABEL = ["profit-only", "whole position"];
+const fmtUnits = (v: bigint, d: number, max = 2) =>
+  (Number(v) / 10 ** d).toLocaleString(undefined, { maximumFractionDigits: max });
+const shortAddr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+const fmtCooldown = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(s % 3600 ? 1 : 0)}h` : `${Math.round(s / 60)}m`);
+
+function Dashboard({ account }: { account: Address }) {
+  const policy = useQuery({ queryKey: ["policy", account], queryFn: () => getPolicy(account) });
+  const cooldown = useQuery({ queryKey: ["cooldown"], queryFn: getCooldown, staleTime: Infinity });
+  const sweeps = useQuery({ queryKey: ["sweeps", account], queryFn: () => getSweeps(account), refetchInterval: 30_000 });
+  const burn = useQuery({ queryKey: ["burn"], queryFn: getBurnTotal, refetchInterval: 60_000 });
+
+  const p = policy.data;
+  if (!p || !p.active) return null; // no card until a policy is live
+
+  return (
+    <section className="card">
+      <h2>
+        Active policy <span className="pill ok">live</span> <span className="pill g">gasless keeper</span>
+      </h2>
+      <div className="kv"><span>Take profit</span><b>{p.pct / 100}% of gains → {DEST_LABEL[p.dest] ?? p.dest}</b></div>
+      <div className="kv"><span>Only when a sweep clears</span><b>≥ ${fmtUnits(p.minUsd, 6)} · {MODE_LABEL[p.mode] ?? p.mode}</b></div>
+      <div className="kv"><span>Max slippage</span><b>{p.maxSlippageBps} bps</b></div>
+      {cooldown.data != null && (
+        <div className="kv"><span>Per-account cooldown</span><b>{fmtCooldown(cooldown.data)} (on-chain)</b></div>
+      )}
+
+      <h3>Sweeps · keeper harvests</h3>
+      {sweeps.isLoading && <p className="muted">Loading…</p>}
+      {sweeps.data && sweeps.data.length === 0 && (
+        <p className="muted">No sweeps yet. The keeper harvests when a bag crosses your threshold.</p>
+      )}
+      {sweeps.data?.map((s) => (
+        <div className="sweep" key={`${s.block}-${s.token}-${s.ts}`}>
+          <span className="t">{new Date(s.ts * 1000).toLocaleDateString()}</span>
+          <span className="m">{shortAddr(s.token)} took profit</span>
+          <span className="v">+{fmtUnits(s.amountOut, 6)} USDG</span>
+          <span className="sub">→ {DEST_LABEL[s.dest] ?? s.dest}</span>
+        </div>
+      ))}
+
+      <h3>Fee → buyback → burn</h3>
+      <div className="flywheel">
+        <span className="n">protocol fee</span><span className="arrow">→</span>
+        <span>SweepBuyback</span><span className="arrow">→</span>
+        <span>buy {burn.data?.symbol ?? "$SWEPT"}</span><span className="arrow">→</span>
+        <span className="n">burn</span>
+      </div>
+      {burn.data ? (
+        <div className="burn">{fmtUnits(burn.data.burned, burn.data.decimals)} {burn.data.symbol}</div>
+      ) : (
+        <p className="muted">Loading burn total…</p>
+      )}
+      <p className="hint">
+        Total {burn.data?.symbol ?? "$SWEPT"} burned to <code>0x…dEaD</code>. Every sweep's fee is bought
+        back and burned on the keeper's cooldown.
+      </p>
     </section>
   );
 }

@@ -11,8 +11,10 @@ import {
   toHex,
 } from "viem";
 import { rhChain } from "../config/chains";
-import { ADDR, registryAbi, erc20Abi } from "../config/contracts";
+import { ADDR, registryAbi, erc20Abi, executorAbi, buybackAbi, sweepExecutedEvent } from "../config/contracts";
 import { SMART_ACCOUNT_CREATION_CODE } from "../config/smartAccountBytecode";
+
+const DEAD = "0x000000000000000000000000000000000000dEaD" as Address;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Account interaction layer.
@@ -96,6 +98,47 @@ export async function getPolicy(account: Address) {
     functionName: "getPolicy",
     args: [account],
   });
+}
+
+// ── Dashboard reads (step 4) ──
+
+export type SweepEvent = { token: Address; amountIn: bigint; amountOut: bigint; dest: number; ts: number; block: bigint };
+
+/** An account's keeper harvests, newest first, from the executor's SweepExecuted logs. */
+export async function getSweeps(account: Address): Promise<SweepEvent[]> {
+  const logs = await publicClient.getLogs({
+    address: ADDR.executor,
+    event: sweepExecutedEvent,
+    args: { account },
+    fromBlock: 0n,
+  });
+  return logs
+    .map((l) => ({
+      token: l.args.tokenIn as Address,
+      amountIn: l.args.amountIn as bigint,
+      amountOut: l.args.amountOut as bigint, // USDG proceeds (6-dp)
+      dest: Number(l.args.dest),
+      ts: Number(l.args.timestamp),
+      block: l.blockNumber ?? 0n,
+    }))
+    .sort((a, b) => b.ts - a.ts);
+}
+
+/** Total $SWEPT burned: resolve the buyback's sweepToken, then balanceOf(DEAD) on it. */
+export async function getBurnTotal(): Promise<{ token: Address; burned: bigint; decimals: number; symbol: string }> {
+  const token = (await publicClient.readContract({ address: ADDR.buyback, abi: buybackAbi, functionName: "sweepToken" })) as Address;
+  const [burned, decimals, symbol] = await Promise.all([
+    publicClient.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [DEAD] }),
+    publicClient.readContract({ address: token, abi: erc20Abi, functionName: "decimals" }),
+    publicClient.readContract({ address: token, abi: erc20Abi, functionName: "symbol" }),
+  ]);
+  return { token, burned: burned as bigint, decimals: Number(decimals), symbol: symbol as string };
+}
+
+/** The executor's on-chain per-account sweep cooldown, in seconds (audit M-3). */
+export async function getCooldown(): Promise<number> {
+  const secs = await publicClient.readContract({ address: ADDR.executor, abi: executorAbi, functionName: "minSweepInterval" });
+  return Number(secs);
 }
 
 // ── calldata the account runs via ownerExecute(target, 0, <this>) ──

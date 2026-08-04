@@ -115,3 +115,29 @@ export const erc20Abi = [
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "string" }] },
   { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] },
 ] as const;
+
+// ── Dashboard reads (step 4): the sweep timeline + the buyback/burn flywheel. ──
+// SweepExecuted matches ISweepExecutor.sol exactly (account + tokenIn indexed). Used with
+// getLogs({ event: sweepExecutedEvent, args: { account } }) to list an account's harvests.
+export const sweepExecutedEvent = {
+  type: "event",
+  name: "SweepExecuted",
+  inputs: [
+    { name: "account", type: "address", indexed: true },
+    { name: "tokenIn", type: "address", indexed: true },
+    { name: "amountIn", type: "uint256", indexed: false },
+    { name: "amountOut", type: "uint256", indexed: false },
+    { name: "dest", type: "uint8", indexed: false },
+    { name: "timestamp", type: "uint256", indexed: false },
+  ],
+} as const;
+
+// minSweepInterval() is the on-chain per-account cooldown (audit M-3), shown on the policy card.
+export const executorAbi = [
+  { type: "function", name: "minSweepInterval", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
+] as const;
+
+// The fee sink. sweepToken() resolves the live $SWEPT; balanceOf(DEAD) on it is the total burned.
+export const buybackAbi = [
+  { type: "function", name: "sweepToken", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
+] as const;
