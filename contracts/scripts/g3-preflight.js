@@ -28,10 +28,9 @@ async function main() {
   if (problems.length) {
     console.log("❌ NOT ready to deploy:");
     for (const p of problems) console.log("   - " + p);
-    console.log("\nMint a FRESH keeper key (runs on YOUR machine; the key never leaves it):");
-    console.log(`   node -e "const w=require('ethers').Wallet.createRandom();console.log('KEEPER_ADDRESS='+w.address+'\\nKEEPER_KEY='+w.privateKey)"`);
-    console.log("Then: KEEPER_ADDRESS -> contracts/.env, KEEPER_KEY -> keeper/.env ONLY (never contracts/.env),");
-    console.log("fund the deployer, and re-run this.\n");
+    console.log("\nMint a fresh keeper key straight into the env files (the private key never prints):");
+    console.log("   node scripts/gen-keeper-key.js");
+    console.log("then fund the deployer and re-run this.\n");
     process.exit(1);
   }
 
