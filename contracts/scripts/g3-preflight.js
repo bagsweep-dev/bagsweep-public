@@ -21,7 +21,9 @@ async function main() {
   const problems = [];
   if (!isAddr(keeper)) problems.push("KEEPER_ADDRESS is not set to a valid address");
   else if (keeper.toLowerCase() === dep.address.toLowerCase()) problems.push("KEEPER_ADDRESS == deployer — that's the convenience G3 exists to drop");
-  if (bal < ethers.parseEther("0.05")) problems.push(`deployer balance ${ethers.formatEther(bal)} ETH is thin for a full deploy + paymaster deposit (want ~0.05+)`);
+  const depositStr = process.env.PAYMASTER_DEPOSIT || "0.005"; // deploy.js honors PAYMASTER_DEPOSIT
+  const needWei = ethers.parseEther(depositStr) + ethers.parseEther("0.006"); // deposit + ~gas for the deploys
+  if (bal < needWei) problems.push(`deployer balance ${ethers.formatEther(bal)} ETH < ~${ethers.formatEther(needWei)} ETH needed (PAYMASTER_DEPOSIT ${depositStr} + gas). Reclaim a paymaster deposit or lower PAYMASTER_DEPOSIT.`);
 
   if (problems.length) {
     console.log("❌ NOT ready to deploy:");
