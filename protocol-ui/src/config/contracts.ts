@@ -11,6 +11,8 @@ export const ADDR = {
   usdg: a(import.meta.env.VITE_USDG),
   buyback: a(import.meta.env.VITE_BUYBACK),
   testMeme: a(import.meta.env.VITE_TEST_MEME),
+  // Optional: a live account shown as the public "see it live" example on the demo build.
+  demoAccount: (import.meta.env.VITE_DEMO_ACCOUNT || "") as Address,
 } as const;
 
 // Sweep destinations (ISweepPolicy.Destination). MVP authors YIELD only.

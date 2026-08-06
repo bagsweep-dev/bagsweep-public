@@ -39,10 +39,45 @@ function useAccountState(owner: Address): UseQueryResult<AcctState> {
   });
 }
 
+// No-wallet walkthrough: what happens, in order, before you ever connect.
+const STEPS = [
+  { t: "Deploy a sweep account", d: "A smart account you fully own. Non-custodial from the first block: your keys, your funds." },
+  { t: "Set a take-profit policy", d: "One on-chain rule. Harvest a slice of a meme bag into USDG (or a stock) once it clears the threshold you choose." },
+  { t: "The keeper harvests, gasless", d: "An automated keeper runs your policy for you and pays its own gas. It is bounded by your rule, so it can never over-sell or reach your principal." },
+  { t: "Fees buy back and burn $SWEPT", d: "Each harvest skims a small protocol fee that buys $SWEPT and burns it. Your owner key can always exit, with no keeper or bundler needed." },
+];
+
+function HowItWorks() {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => setActive((a) => (a + 1) % STEPS.length), 2200);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <section className="demoblock">
+      <h2 className="sech">How it works</h2>
+      <p className="muted">A hands-off take-profit protocol. Four steps, then it runs itself.</p>
+      <ol className="steps">
+        {STEPS.map((s, i) => (
+          <li key={i} className={`step ${i === active ? "on" : ""}`} onMouseEnter={() => setActive(i)}>
+            <span className="num">{i + 1}</span>
+            <div>
+              <b>{s.t}</b>
+              <p>{s.d}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export default function App() {
   const { address, isConnected } = useAccount();
-  // Dev-only: preview any account's read-only dashboard without a wallet (?dash=0x…).
-  const dashPreview = import.meta.env.DEV ? new URLSearchParams(location.search).get("dash") : null;
+  // Preview any account's read-only dashboard via ?dash=0x… (also drives the live example below).
+  const dashPreview = new URLSearchParams(location.search).get("dash");
+  const demo = ADDR.demoAccount;
   return (
     <div className="app">
       <header className="topbar">
@@ -53,16 +88,46 @@ export default function App() {
           {rhChain.name} · {rhChain.id}
         </div>
       </header>
+
+      {!IS_MAINNET && (
+        <div className="demobanner">
+          <b>Live testnet demo.</b> The real BagSweep protocol running on Robinhood Chain testnet.
+          No real funds. Explore a live account below, or connect a testnet wallet to build your own.
+        </div>
+      )}
+
       <main>
         {dashPreview ? (
           <Dashboard account={dashPreview as Address} />
         ) : (
           <>
-            <Connect />
-            {isConnected && address && <Protocol owner={address} />}
+            <HowItWorks />
+            {demo && (
+              <section className="demoblock">
+                <h2 className="sech">See it live · no wallet needed</h2>
+                <p className="muted">
+                  This is a real account already running on testnet. Its owner authored a
+                  take-profit policy, and the keeper has run four automatic harvests into USDG with
+                  no action from the owner. Everything below is read live from the chain, there is
+                  nothing to connect or sign, just scroll and look.
+                </p>
+                <Dashboard account={demo} />
+              </section>
+            )}
+            <section className="demoblock">
+              <h2 className="sech">Try it yourself · needs a testnet wallet</h2>
+              <p className="muted">
+                To build your own, connect a wallet on Robinhood Chain testnet, then deploy your
+                account, enable the keeper, and author a policy. Owner actions are ordinary
+                transactions, so you will need a little testnet ETH for gas.
+              </p>
+              <Connect />
+              {isConnected && address && <Protocol owner={address} />}
+            </section>
           </>
         )}
       </main>
+
       <footer className="foot">
         Non-custodial. Keys stay yours. Owner actions are direct transactions; the keeper's
         sweeps are gasless. Testnet build, do not use real funds.
@@ -281,7 +346,8 @@ function Dashboard({ account }: { account: Address }) {
   const policy = useQuery({ queryKey: ["policy", account], queryFn: () => getPolicy(account) });
   const cooldown = useQuery({ queryKey: ["cooldown"], queryFn: getCooldown, staleTime: Infinity });
   const sweeps = useQuery({ queryKey: ["sweeps", account], queryFn: () => getSweeps(account), refetchInterval: 30_000 });
-  const burn = useQuery({ queryKey: ["burn"], queryFn: getBurnTotal, refetchInterval: 60_000 });
+  const hasBuyback = !!ADDR.buyback;
+  const burn = useQuery({ queryKey: ["burn"], queryFn: getBurnTotal, refetchInterval: 60_000, enabled: hasBuyback });
 
   const p = policy.data;
   if (!p || !p.active) return null; // no card until a policy is live
@@ -319,15 +385,22 @@ function Dashboard({ account }: { account: Address }) {
         <span>buy {burn.data?.symbol ?? "$SWEPT"}</span><span className="arrow">→</span>
         <span className="n">burn</span>
       </div>
-      {burn.data ? (
-        <div className="burn">{fmtUnits(burn.data.burned, burn.data.decimals)} {burn.data.symbol}</div>
-      ) : (
+      {hasBuyback && burn.data ? (
+        <>
+          <div className="burn">{fmtUnits(burn.data.burned, burn.data.decimals)} {burn.data.symbol}</div>
+          <p className="hint">
+            Total {burn.data.symbol} burned to <code>0x…dEaD</code>. Every sweep's fee is bought
+            back and burned on the keeper's cooldown.
+          </p>
+        </>
+      ) : hasBuyback ? (
         <p className="muted">Loading burn total…</p>
+      ) : (
+        <p className="hint">
+          Each sweep skims a small protocol fee that buys $SWEPT and burns it to <code>0x…dEaD</code>.
+          The buyback goes live with $SWEPT on mainnet; this testnet deploy shows the mechanism.
+        </p>
       )}
-      <p className="hint">
-        Total {burn.data?.symbol ?? "$SWEPT"} burned to <code>0x…dEaD</code>. Every sweep's fee is bought
-        back and burned on the keeper's cooldown.
-      </p>
     </section>
   );
 }

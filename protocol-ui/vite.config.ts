@@ -6,6 +6,9 @@ import react from "@vitejs/plugin-react";
 // CORS). Point /api at it in dev.
 export default defineConfig({
   plugins: [react()],
+  // Served from app.bagsweep.xyz/demo on the VPS (nginx static location). Base must match the
+  // subpath so asset URLs resolve. For a root/subdomain deploy, set this back to "/".
+  base: "/demo/",
   server: {
     port: 3020,
     proxy: {
