@@ -54,8 +54,15 @@ export async function evaluateAll() {
     return [];
   }
   const provider = getProvider();
-  // Pre-filter cooldown before spending any RPC, then evaluate the rest concurrently.
-  const entries = [...getActivePolicies()].filter(([account]) => !isOnCooldown(account));
+  // Pre-filter the keeper's local cooldown (cheap, no RPC), THEN the authoritative on-chain
+  // cooldown (executor.lastSweepAt + minSweepInterval), so we never submit a guaranteed-revert
+  // SweepCooldown op between windows. The local timer alone isn't enough: when it's shorter
+  // than the on-chain minSweepInterval it expires first, and the keeper then spams sponsored
+  // reverts until the chain lets the next sweep through (soak finding 2026-08-05).
+  const localOk = [...getActivePolicies()].filter(([account]) => !isOnCooldown(account));
+  const gated = await pool(localOk, async (entry) =>
+    (await isOnChainCooldown(entry[0], provider)) ? null : entry, EVAL_CONCURRENCY);
+  const entries = gated.filter(Boolean);
 
   const plans = await pool(entries, async ([account, { policy }]) => {
     try {
@@ -67,6 +74,36 @@ export async function evaluateAll() {
   }, EVAL_CONCURRENCY);
 
   return plans.filter(Boolean);
+}
+
+// The executor enforces a per-account cooldown (minSweepInterval); any sweep inside the window
+// reverts SweepCooldown. Pre-check it on-chain so the keeper never burns sponsored gas on a
+// guaranteed revert. minSweepInterval only changes via the owner/timelock, so cache it.
+const EXECUTOR_COOLDOWN_ABI = [
+  "function lastSweepAt(address) view returns (uint256)",
+  "function minSweepInterval() view returns (uint256)",
+];
+let _cdInterval = null;
+let _cdIntervalTs = 0;
+const CD_INTERVAL_TTL = 5 * 60_000;
+
+async function isOnChainCooldown(account, provider) {
+  try {
+    const ex = new ethers.Contract(config.executor, EXECUTOR_COOLDOWN_ABI, provider);
+    if (_cdInterval == null || Date.now() - _cdIntervalTs > CD_INTERVAL_TTL) {
+      _cdInterval = await ex.minSweepInterval();
+      _cdIntervalTs = Date.now();
+    }
+    if (_cdInterval === 0n) return false; // cooldown disabled on-chain
+    const last = await ex.lastSweepAt(account);
+    return BigInt(Math.floor(Date.now() / 1000)) < last + _cdInterval;
+  } catch (err) {
+    // Fail-open: a read error must not wedge an account forever. The on-chain cooldown still
+    // enforces safety (a premature op just reverts), so the worst case is one wasted revert —
+    // the pre-fix behaviour, not a regression.
+    console.error(`[evaluator] on-chain cooldown read for ${account} failed (proceeding):`, err.message);
+    return false;
+  }
 }
 
 /**

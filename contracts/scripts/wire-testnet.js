@@ -35,7 +35,7 @@ async function main() {
   ok((await usdg.balanceOf(routerAddr)) >= FUND_USDG, `funded ${ethers.formatUnits(FUND_USDG, 6)} USDG payout liquidity`);
 
   await (await executor.setSanctionedRouter(routerAddr, true)).wait();
-  ok(await executor.sanctionedRouters(routerAddr), "router sanctioned on the executor");
+  ok(await executor.sanctionedRouter(routerAddr), "router sanctioned on the executor");
 
   A.sweepRouter = routerAddr;
   fs.writeFileSync(ADDR_PATH, JSON.stringify(A, null, 2) + "\n");
