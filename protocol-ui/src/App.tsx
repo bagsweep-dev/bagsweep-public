@@ -39,12 +39,12 @@ function useAccountState(owner: Address): UseQueryResult<AcctState> {
   });
 }
 
-// No-wallet walkthrough: what happens, in order, before you ever connect.
+// No-wallet walkthrough: what happens, in order, before you ever connect. Plain language.
 const STEPS = [
-  { t: "Deploy a sweep account", d: "A smart account you fully own. Non-custodial from the first block: your keys, your funds." },
-  { t: "Set a take-profit policy", d: "One on-chain rule. Harvest a slice of a meme bag into USDG (or a stock) once it clears the threshold you choose." },
-  { t: "The keeper harvests, gasless", d: "An automated keeper runs your policy for you and pays its own gas. It is bounded by your rule, so it can never over-sell or reach your principal." },
-  { t: "Fees buy back and burn $SWEPT", d: "Each harvest skims a small protocol fee that buys $SWEPT and burns it. Your owner key can always exit, with no keeper or bundler needed." },
+  { t: "Make your account", d: "A wallet only you control. Your coins and keys never leave your hands." },
+  { t: "Set your take-profit rule", d: "Pick when to cash out. For example: sell 10% of the gains once a coin has pumped." },
+  { t: "A bot does the selling", d: "An automated bot follows your rule and does the selling for you, and it pays the gas, not you. It can only ever do what your rule allows." },
+  { t: "You stay in control", d: "It runs on its own, but you can change the rule, cash out, or pull everything back anytime. No middleman, no lockup." },
 ];
 
 function HowItWorks() {
@@ -57,7 +57,7 @@ function HowItWorks() {
   return (
     <section className="demoblock">
       <h2 className="sech">How it works</h2>
-      <p className="muted">A hands-off take-profit protocol. Four steps, then it runs itself.</p>
+      <p className="muted">Take profit without watching charts. Four steps, then it runs on its own.</p>
       <ol className="steps">
         {STEPS.map((s, i) => (
           <li key={i} className={`step ${i === active ? "on" : ""}`} onMouseEnter={() => setActive(i)}>
@@ -89,10 +89,18 @@ export default function App() {
         </div>
       </header>
 
+      <section className="hero">
+        <h1>Take profit on autopilot</h1>
+        <p>
+          Set one rule. When your meme coin pumps, BagSweep sells a slice into stablecoin for you,
+          automatically. Your coins never leave your wallet, and you can stop anytime.
+        </p>
+      </section>
+
       {!IS_MAINNET && (
         <div className="demobanner">
-          <b>Live testnet demo.</b> The real BagSweep protocol running on Robinhood Chain testnet.
-          No real funds. Explore a live account below, or connect a testnet wallet to build your own.
+          <b>Live demo on testnet.</b> Not real money. Watch a real account in action below, or
+          connect a test wallet to try it yourself.
         </div>
       )}
 
@@ -106,20 +114,19 @@ export default function App() {
               <section className="demoblock">
                 <h2 className="sech">See it live · no wallet needed</h2>
                 <p className="muted">
-                  This is a real account already running on testnet. Its owner authored a
-                  take-profit policy, and the keeper has run four automatic harvests into USDG with
-                  no action from the owner. Everything below is read live from the chain, there is
-                  nothing to connect or sign, just scroll and look.
+                  A real trader set this up. Their rule: bank 10% of the gains. The bot has quietly
+                  done it four times for them already, no clicking, no watching charts. It is all
+                  live from the chain below, nothing to connect or sign.
                 </p>
                 <Dashboard account={demo} />
               </section>
             )}
             <section className="demoblock">
-              <h2 className="sech">Try it yourself · needs a testnet wallet</h2>
+              <h2 className="sech">Try it yourself · for testers</h2>
               <p className="muted">
-                To build your own, connect a wallet on Robinhood Chain testnet, then deploy your
-                account, enable the keeper, and author a policy. Owner actions are ordinary
-                transactions, so you will need a little testnet ETH for gas.
+                Want to click through it? You will need a wallet on Robinhood Chain testnet and a
+                little test ETH (not real money). Not set up for that? Just watch the live account
+                above, that is the whole thing working.
               </p>
               <Connect />
               {isConnected && address && <Protocol owner={address} />}
@@ -129,8 +136,8 @@ export default function App() {
       </main>
 
       <footer className="foot">
-        Non-custodial. Keys stay yours. Owner actions are direct transactions; the keeper's
-        sweeps are gasless. Testnet build, do not use real funds.
+        Your coins never leave your wallet, and you can cash out anytime. This is a testnet demo,
+        not real money.
       </footer>
     </div>
   );
@@ -335,7 +342,7 @@ function PolicyForm({ state }: { state: UseQueryResult<AcctState> }) {
 // ── Step 4: live dashboard — active policy, the keeper's sweep history, and the
 // fee -> buyback -> burn flywheel. All read straight from chain; renders only once a
 // policy is active, so it is the natural reward after authoring one.
-const DEST_LABEL = ["USDG yield", "Stocks", "Split 50/50"];
+const DEST_LABEL = ["USDG (stablecoin)", "Stocks", "Split 50/50"];
 const MODE_LABEL = ["profit-only", "whole position"];
 const fmtUnits = (v: bigint, d: number, max = 2) =>
   (Number(v) / 10 ** d).toLocaleString(undefined, { maximumFractionDigits: max });
@@ -355,19 +362,19 @@ function Dashboard({ account }: { account: Address }) {
   return (
     <section className="card">
       <h2>
-        Active policy <span className="pill ok">live</span> <span className="pill g">gasless keeper</span>
+        This account's rule <span className="pill ok">live</span> <span className="pill g">runs automatically</span>
       </h2>
-      <div className="kv"><span>Take profit</span><b>{p.pct / 100}% of gains → {DEST_LABEL[p.dest] ?? p.dest}</b></div>
-      <div className="kv"><span>Only when a sweep clears</span><b>≥ ${fmtUnits(p.minUsd, 6)} · {MODE_LABEL[p.mode] ?? p.mode}</b></div>
-      <div className="kv"><span>Max slippage</span><b>{p.maxSlippageBps} bps</b></div>
+      <div className="kv"><span>Takes profit</span><b>{p.pct / 100}% of gains → {DEST_LABEL[p.dest] ?? p.dest}</b></div>
+      <div className="kv"><span>Minimum sale</span><b>≥ ${fmtUnits(p.minUsd, 6)} · {MODE_LABEL[p.mode] ?? p.mode}</b></div>
+      <div className="kv"><span>Max slippage</span><b>{p.maxSlippageBps / 100}%</b></div>
       {cooldown.data != null && (
-        <div className="kv"><span>Per-account cooldown</span><b>{fmtCooldown(cooldown.data)} (on-chain)</b></div>
+        <div className="kv"><span>Waits between sells</span><b>at least {fmtCooldown(cooldown.data)}</b></div>
       )}
 
-      <h3>Sweeps · keeper harvests</h3>
+      <h3>What the bot has done</h3>
       {sweeps.isLoading && <p className="muted">Loading…</p>}
       {sweeps.data && sweeps.data.length === 0 && (
-        <p className="muted">No sweeps yet. The keeper harvests when a bag crosses your threshold.</p>
+        <p className="muted">Nothing sold yet. The bot sells when a coin crosses your threshold.</p>
       )}
       {sweeps.data?.map((s) => (
         <div className="sweep" key={`${s.block}-${s.token}-${s.ts}`}>
@@ -378,27 +385,25 @@ function Dashboard({ account }: { account: Address }) {
         </div>
       ))}
 
-      <h3>Fee → buyback → burn</h3>
+      <h3>Where the fees go</h3>
       <div className="flywheel">
-        <span className="n">protocol fee</span><span className="arrow">→</span>
-        <span>SweepBuyback</span><span className="arrow">→</span>
-        <span>buy {burn.data?.symbol ?? "$SWEPT"}</span><span className="arrow">→</span>
-        <span className="n">burn</span>
+        <span className="n">a small fee</span><span className="arrow">→</span>
+        <span>buys {burn.data?.symbol ?? "$SWEPT"}</span><span className="arrow">→</span>
+        <span className="n">burns it</span>
       </div>
       {hasBuyback && burn.data ? (
         <>
           <div className="burn">{fmtUnits(burn.data.burned, burn.data.decimals)} {burn.data.symbol}</div>
           <p className="hint">
-            Total {burn.data.symbol} burned to <code>0x…dEaD</code>. Every sweep's fee is bought
-            back and burned on the keeper's cooldown.
+            Total {burn.data.symbol} bought back and burned. Every sale pays a tiny fee that does this.
           </p>
         </>
       ) : hasBuyback ? (
-        <p className="muted">Loading burn total…</p>
+        <p className="muted">Loading…</p>
       ) : (
         <p className="hint">
-          Each sweep skims a small protocol fee that buys $SWEPT and burns it to <code>0x…dEaD</code>.
-          The buyback goes live with $SWEPT on mainnet; this testnet deploy shows the mechanism.
+          Every sale pays a tiny fee that buys $SWEPT and burns it. This kicks in with $SWEPT on
+          mainnet; on testnet it just shows the mechanism.
         </p>
       )}
     </section>
