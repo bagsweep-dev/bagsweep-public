@@ -1,16 +1,16 @@
 {
   "chainId": "46630",
   "network": "robinhood-testnet",
-  "deployedAt": "2026-07-30T12:09:50.280Z",
-  "usdg": "0xDeFb1C0362229A59e3383d512cf462760b868fA7",
-  "mockMemeToken": "0x330Bde928231842c24C0F2AB69762F465Edc2b9A",
+  "deployer": "0x2fE073461110025e7ab3852e96a97f118E3F67be",
+  "deployedAt": "2026-08-05T03:25:03.956Z",
+  "usdg": "0x3D0962386114AC969fFC6e478cB51D7f883d5557",
+  "mockMemeToken": "0xfe67050aF12824800F1594Fbe6FFCFBAfa0016Ea",
   "entryPoint": "0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108",
-  "registry": "0x61dC8e8ac0E9d442fb402f9e2aCdf61691e586E5",
-  "executor": "0x7d1c9702860d506593D5b473d9082db9f2f44ceb",
-  "factory": "0x71f80182F16bA3A0a718B42B7B3EdFa7F40fA6fb",
-  "paymaster": "0xc10A1585A7016fC8B0C2a809C4699467eBA1E642",
-  "sweepRouter": "0xBbcF3fB89db05fFA906449a48612176dbc309ccE",
-  "minSweepInterval": 60,
-  "accountInitCodeHash": "0xbe908d39415d46d77d9d7e0417532ab4a7924c5b4072642185ea3d760e388930",
-  "revision": "v4/v5: M-3 cooldown + L-1/L-4 two-step ownership (executor+factory redeployed, rest reused)"
+  "registry": "0xBC631a0e682cDdFCC3537D9a892b278604F64eDA",
+  "executor": "0x1E73c12b598aB3e47e43A5Bc17f1F84E440e7ef4",
+  "factory": "0x81dc83cE97781F67018c9ee933cf29C77Cfee90c",
+  "keeper": "0xf18eAFa06d331dDb52f58d4d26b13f68C57F66Db",
+  "paymaster": "0x04b8824B7d71d87AA1e6C223Bf85713033828616",
+  "sponsorSigner": "0xf18eAFa06d331dDb52f58d4d26b13f68C57F66Db",
+  "sweepRouter": "0xD659cd557D5f0b1528a07352E7161b5Fe00b42e9"
 }
