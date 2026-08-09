@@ -7,6 +7,7 @@ import { ethers } from "ethers";
 import { config } from "./config.js";
 import { getProvider, getActivePolicies, isOnCooldown } from "./monitor.js";
 import { selectBestRoute, usdgForStockLeg, quoteStockLeg, profitCappedAmount, encodeV3Path, auditFeeTier } from "./router.js";
+import { checkTwapGate } from "./twap.js";
 import { rhPnl } from "../../lib/rh.js";
 import { pool } from "../../lib/util.js";
 
@@ -166,6 +167,21 @@ async function evaluateAccount(account, policy, provider) {
       if (config.quoter && config.sweepRouter) {
         const route = await selectRouteOnchain(tokenAddr, sweepAmount, provider);
         if (!route) return null; // no routable path with the configured pools
+
+        // TWAP gate on the meme leg. The slippage floor below is derived from `spotQuote`,
+        // so it cannot detect a manipulation that moved that quote in the first place (dump
+        // the pool -> depressed quote -> low floor -> sweep sells cheap and still passes).
+        // An independent TWAP is the second opinion; it decides whether to act, never the
+        // price. Fails open outside "enforce" mode, so this is a no-op until switched on.
+        const gate = await checkTwapGate({
+          tokenIn: route.path[0], tokenOut: route.path[1], fee: route.fees[0], provider,
+        });
+        if (gate.gated) {
+          console.warn(`[twap] ${account} ${tokenAddr}: ${gate.reason}` +
+            `${gate.ok ? " (warn only, sweeping anyway)" : " — skipping"}`, gate.detail);
+        }
+        if (!gate.ok) return null;
+
         spotQuote = route.amountOut;
         swapData = encodeSwapExactTokens(route.path, sweepAmount, (spotQuote * BigInt(10000 - slipBps)) / 10000n);
       } else {

@@ -16,7 +16,7 @@ Canonical mainnet addresses used below:
 ## 0. Gates (do not start until all true)
 - [ ] External audit complete and findings remediated; audit baseline re-frozen.
 - [ ] Phase-1 demand signal supports going to mainnet (business decision).
-- [ ] **Three distinct keys** exist: `deployer` (cold admin), `keeper` (hot signer, its key lives ONLY on the keeper host), `guardian` (fast pause). Never reuse one for another.
+- [ ] **Three distinct keys** exist: `deployer` (cold admin), `keeper` (hot signer, its key lives ONLY on the VPS keeper service), `guardian` (fast pause). Never reuse one for another.
 - [ ] Deployer funded with mainnet ETH for deploys + the paymaster deposit.
 
 > **Audit v4 contract deltas (must be in external-audit scope).** This revision changes the core:
@@ -44,13 +44,38 @@ cast call <poolAddr> "fee()(uint24)"
 Record `FEE_USDG_WETH` and `FEE_WETH_SWEEP`.
 
 **Verified on-chain 2026-07-29 ($SWEPT is a V3 token, not V4).** $SWEPT trades in a live Uniswap
-**V3** pool, SWEPT/WETH at the **1% (10000) tier**, pool `0xa8e95ddca643d0a4a6d695912e65b172e8f96e03`
+**V3** pool, SWEPT/aeWETH at the **1% (10000) tier**, pool `0x247C99074b7609C8b6714e76e67394803eBacaf4`
 (initialized, has liquidity). There is no SWEPT/USDG pool and no SWEPT/WETH pool at the 500 or 3000
 tiers, so `FEE_WETH_SWEEP` **must be `10000`** — a default of 500/3000 would point `feeFor` at a
 non-existent pool and the buyback would skip forever. USDG/WETH exists at all three tiers (pick the
 deepest, historically the 500 tier). The V3 Quoter + `SweepRouterV3Adapter` see this pool fine; the
 shipped `SweepRouterV4Adapter` is not needed for $SWEPT (keep it for future launchpad tokens that
 graduate to a V4 pool).
+
+> ⚠ **Corrected 2026-08-09.** This previously cited pool `0xa8e95ddca643d0a4a6d695912e65b172e8f96e03`,
+> which does **not** contain $SWEPT: it is the **aeWETH/REAP** pool (`0xd36f5744a655bd786993574b94bbf11b6b126ffa`,
+> symbol `REAP`, the predecessor token — both tokens share the name "BagSweep", which is how the two
+> pools got conflated). The fee-tier conclusion above was unaffected (both pools sit at the 1% tier)
+> and the adapter resolves pools from the V3 factory rather than from a hardcoded address, so no
+> deployment was misconfigured — but anyone verifying "$SWEPT liquidity" against the old address was
+> reading the wrong pool. Confirm the pool for yourself before Step 2 rather than trusting either
+> address in this document:
+> ```bash
+> cast call 0x1f7d7550b1b028f7571e69a784071f0205fd2efa "getPool(address,address,uint24)(address)" \
+>   0x4f2b3Af4eD8b89E1957c68524D2dbaf0521b20Bf 0x0bd7d308f8e1639fab988df18a8011f41eacad73 10000
+> cast call <poolAddr> "token0()(address)"   # expect aeWETH
+> cast call <poolAddr> "token1()(address)"   # expect $SWEPT, NOT 0xd36f5744...
+> ```
+
+**TWAP availability (measured 2026-08-09).** The SWEPT/aeWETH pool sits at **observation cardinality 1**,
+so it has no usable TWAP: one swap sets the price and `observe()` cannot produce a meaningful average.
+Live launchpad meme pools *do* carry buffers (WOOF/aeWETH and MANCER/aeWETH both at 1400), which is why
+the keeper's TWAP gate works for sweeps but not for the buyback leg. `increaseObservationCardinalityNext()`
+is **permissionless**, so provisioning the $SWEPT pool is a one-off transaction anyone can send and is
+worth doing before relying on any TWAP-based check for the buyback:
+```bash
+cast send 0x247C99074b7609C8b6714e76e67394803eBacaf4 "increaseObservationCardinalityNext(uint16)" 300
+```
 
 ⚠ **Thin pool caveat.** At graduation the SWEPT/WETH pool holds only ~0.02 WETH of depth, so any
 non-trivial buyback swap blows past the slippage floor and the pre-submit simulation reverts, so the
@@ -86,8 +111,8 @@ cast call <adapter>  "feeFor(address,address)(uint24)" <USDG> <WETH>   # == FEE_
 cast call <adapter>  "feeFor(address,address)(uint24)" <WETH> <SWEPT>   # == FEE_WETH_SWEEP
 ```
 
-## 4. Deploy the keeper (systemd service)
-Deploy the keeper as a long-running service (systemd or equivalent). Keeper env (`.env`, root-only, never world-readable):
+## 4. Deploy the keeper (VPS, systemd)
+Deploy like the tracker/FAQ bot (VPS `.39`, `/opt/`, systemd). Keeper env (`.env`, root-only):
 ```
 RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com
 KEEPER_KEY=<keeper private key>            # this box only; never in the deployer env
@@ -97,20 +122,28 @@ QUOTER_ADDR=0x33e885eD0Ec9bF04EcfB19341582aADCb4c8A9E7
 BUYBACK_ADDR=<buyback>
 SWEEP_HUBS=["0x0bd7d308f8e1639fab988df18a8011f41eacad73"]   # aeWETH, for the multi-hop route
 BUYBACK_ENABLED=1
-
-# $SWEPT demand gate — OFF by default (unset = every sweep sponsored, as today).
+# TWAP manipulation gate (keeper/src/twap.js). The enforced output floor is derived from the
+# Quoter's spot read, so it cannot detect a manipulation that moved that quote: dump a thin meme
+# pool -> depressed quote -> low floor -> the sweep sells cheap and still passes its own floor.
+# The gate is the independent second opinion; it decides WHETHER to sweep, never the price.
+V3_FACTORY_ADDR=0x1f7d7550b1b028f7571e69a784071f0205fd2efa   # canonical Uniswap V3 factory
+TWAP_GATE_MODE=warn        # off | warn | enforce. Ship on `warn` (logs only, never blocks —
+                           # a strict no-op vs current behaviour), then flip to `enforce` once
+                           # the logs show these thresholds fit the tokens actually being swept.
+# TWAP_SLOW_SEC=1800       # 30 min reference window
+# TWAP_FAST_SEC=300        # 5 min window; fast vs slow must agree within the cap
+# TWAP_MIN_CARDINALITY=60  # below this there is no TWAP (unprovisioned pools read 1)
+# TWAP_MAX_DEVIATION_BPS=500  # 5%; applied to fast-vs-slow AND spot-below-slow
+# $SWEPT demand gate — OFF by default (unset = every sweep sponsored, as today). See SWEEP_DEMAND_GATE.md.
 # GATE_ENABLED=1
 # SWEEP_ADDR=0x4f2b3Af4eD8b89E1957c68524D2dbaf0521b20Bf
 # SWEEP_MIN_HOLD=250000     # whole $SWEPT the account OWNER must hold to get GASLESS keeper sweeps (bootstrap fixed-count)
 # GATE_FAIL_OPEN=1         # on a balance-read error, sponsor anyway (default; set 0 to fail closed)
 ```
+The gate never touches on-chain safety: a non-entitled account keeps `ownerExecute` and self-custody; the keeper just doesn't sponsor its gas. Flip it on only after $SWEPT has real liquidity + the copy is ready.
 `systemctl start bagsweep-keeper` then confirm it reads state and logs `skip: ...` cleanly
 (no revert). It is cap/cooldown-aware and simulates every tx, so a misconfig degrades to a
 skip, not a bad send.
-
-The gate never touches on-chain safety: a non-entitled account keeps `ownerExecute` and
-self-custody; the keeper just doesn't sponsor its gas. Flip it on only after $SWEPT has real
-liquidity + the copy is ready.
 
 ## 5. Canary (fees still OFF)
 - **Sweep:** from a throwaway smart account with a tiny meme position, author a policy and let

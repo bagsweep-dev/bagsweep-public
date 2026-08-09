@@ -31,10 +31,10 @@ from your account, or seize your account.
 
 ## Known limitation: keeper-declared pricing (please read before using)
 
-Robinhood Chain has no price oracle and no usable on-chain TWAP. Because of that, the keeper
-declares the reference price for each sweep, and the on-chain slippage floor is derived from
-that declared price. **A compromised keeper can declare an artificially low price and route a
-sweep through a manipulated or sandwiched pool, extracting value from that sweep.**
+Robinhood Chain has no external price oracle (Pyth and Chainlink are both absent). Because of
+that, the keeper declares the reference price for each sweep, and the on-chain slippage floor is
+derived from that declared price. **A compromised keeper can declare an artificially low price
+and route a sweep through a manipulated or sandwiched pool, extracting value from that sweep.**
 
 This applies to **both swap legs**: the meme-to-USDG swap, and for STOCKS or SPLIT_50_50
 destinations the USDG-to-stock swap, which is bounded by a keeper-declared stock quote the
@@ -45,11 +45,28 @@ authored** per cooldown interval, and can never touch tokens outside your policy
 account directly. So the worst case is losing up to your authored percentage of a position's
 value per interval, never your whole account, and your owner key can always exit.
 
-We cannot remove this on Robinhood Chain without an oracle, so we disclose it plainly rather
-than imply a protection that does not exist. To limit your exposure: author a conservative
-percentage cap, treat the keeper as untrusted, and exit via your owner key if you ever suspect
-the keeper is compromised. This tradeoff is inherent to hands-off take-profit automation on an
-oracle-less chain.
+**Partial mitigation added 2026-08-09 (off-chain, defence in depth).** We previously stated that
+this chain had no usable on-chain TWAP at all. That was measured and found to be **wrong for the
+pools that matter**: live Uniswap V3 launchpad pools do carry observation buffers (WOOF/aeWETH and
+MANCER/aeWETH both read observation-cardinality 1400, and `observe()` over a 30-minute window
+succeeds), while unprovisioned pools read 1. The keeper now runs a TWAP gate (`keeper/src/twap.js`)
+before building a sweep: it requires a minimum observation cardinality, requires the pool to be old
+enough to cover the full window, and requires a fast and a slow window to agree with each other and
+with spot inside a deviation cap. A pool being dumped to depress the quote fails that check and the
+sweep is skipped rather than executed.
+
+Be precise about what this does and does not change. The gate decides **whether** to sweep; it does
+not price anything, and the on-chain floor is still the keeper-declared `spotQuote`. It is enforced
+**off-chain**, so it constrains an honest keeper facing a manipulated market — it is **not** a
+defence against a compromised keeper, which can simply skip the check. The on-chain bound remains
+the percentage cap. Tokens whose pools have no observation buffer (including $SWEPT's own pool at
+the time of writing) cannot be gated at all.
+
+We cannot remove the underlying limitation on Robinhood Chain without an oracle, so we disclose it
+plainly rather than imply a protection that does not exist. To limit your exposure: author a
+conservative percentage cap, treat the keeper as untrusted, and exit via your owner key if you ever
+suspect the keeper is compromised. This tradeoff is inherent to hands-off take-profit automation on
+a chain with no external oracle.
 
 ## Safe harbor
 

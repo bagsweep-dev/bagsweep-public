@@ -83,7 +83,7 @@ export const config = {
   // keeps the ungated self-exit (SmartAccount.ownerExecute); the keeper just does not
   // automate a gasless sweep for it. Bootstrap uses a FIXED whole-token threshold (the
   // SWEPT/WETH pool is too thin to price a dollar-peg yet); the smoothed-price peg +
-  // retention snapshot land later.
+  // retention snapshot land later. See ../SWEEP_DEMAND_GATE.md.
   gate: {
     enabled:    process.env.GATE_ENABLED === "1",
     sweep:       process.env.SWEEP_ADDR || deployed.sweep || "",
@@ -93,7 +93,7 @@ export const config = {
     })(),
     cacheTtlMs: parseInt(process.env.GATE_CACHE_TTL_MS || "60000"),   // per-account entitlement cache
     failOpen:   process.env.GATE_FAIL_OPEN !== "0",  // on a balance-read error, sponsor anyway (don't deny a paying user)
-    // ── phase 2: dollar-peg entry + token-hold retention ──
+    // ── phase 2: dollar-peg entry + token-hold retention (SWEEP_DEMAND_GATE.md) ──
     mode:           process.env.GATE_MODE || "auto",                 // auto | fixed | peg  (auto = liquidity floor decides)
     targetUsd:      parseFloat(process.env.GATE_TARGET_USD || "25"),
     liqFloorUsd:    parseFloat(process.env.GATE_LIQ_FLOOR_USD || "8000"),
@@ -106,6 +106,25 @@ export const config = {
   // ── Thresholds ──
   minSweepUsd:       parseFloat(process.env.MIN_SWEEP_USD     || "5"),       // $5 min sweep
   maxSlippageBps:    parseInt(process.env.MAX_SLIPPAGE_BPS    || "300"),     // 3%
+
+  // ── TWAP manipulation gate (keeper/src/twap.js) ──
+  // Canonical Uniswap V3 factory, used ONLY to resolve a hop's pool for its TWAP. Distinct
+  // from `factory` above (that is the SmartAccountFactory). RH mainnet: 0x1f7d7550...
+  v3Factory: process.env.V3_FACTORY_ADDR || deployed.v3Factory || "",
+  twapGate: {
+    // off | warn | enforce. "warn" runs every check and logs but never blocks a sweep, so
+    // enabling this is a strict no-op against current behaviour — safe inside the go-live
+    // freeze. Move to "enforce" once the logs show these thresholds fit the real tokens.
+    mode:            (process.env.TWAP_GATE_MODE || "warn").toLowerCase(),
+    slowWindowSec:   parseInt(process.env.TWAP_SLOW_SEC        || "1800"),   // 30 min
+    fastWindowSec:   parseInt(process.env.TWAP_FAST_SEC        || "300"),    // 5 min
+    // Verified 2026-08-09: live RH launchpad pools carry cardinality 1400, while unprovisioned
+    // ones sit at 1 (observe reverts OLD). 60 accepts any genuinely provisioned buffer.
+    minCardinality:  parseInt(process.env.TWAP_MIN_CARDINALITY || "60"),
+    // Deviation cap in bps, applied to fast-vs-slow AND spot-below-slow. Memes are volatile,
+    // so this is deliberately loose: it targets manipulation, not ordinary movement.
+    maxDeviationBps: parseInt(process.env.TWAP_MAX_DEVIATION_BPS || "500"),  // 5%
+  },
 
   // ── UserOp gas limits ──
   // Configurable fallbacks (were hardcoded; v2 audit L-6). When an
