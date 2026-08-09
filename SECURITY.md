@@ -68,6 +68,56 @@ conservative percentage cap, treat the keeper as untrusted, and exit via your ow
 suspect the keeper is compromised. This tradeoff is inherent to hands-off take-profit automation on
 a chain with no external oracle.
 
+## Legal perimeter (what this software is, and what has not been established)
+
+This section exists so that nobody has to infer our legal posture from marketing copy. It is a
+factual description of the software and of what is **not** yet determined. It is not legal advice,
+not a legal opinion, and not a classification of any asset.
+
+**What the protocol does.** BagSweep is non-custodial automation. You deploy a smart account you
+own, you author a policy, and a keeper may execute sweeps within the bounds that policy sets. The
+protocol never takes custody: `ownerExecute` lets your owner key move funds directly with no
+dependency on the EntryPoint, a bundler, a paymaster, or the keeper. There is no deposit-taking, no
+pooled fund, no discretionary management of anyone's assets, and no promise about the value or
+performance of any token you sweep into or out of.
+
+**What $SWEPT is, mechanically.** $SWEPT is a fixed-supply token. When the fee switch is enabled,
+`SweepExecutor` skims a protocol fee in USDG into `SweepBuyback`, and that USDG can leave only by
+being swapped for $SWEPT and burned to `0x…dEaD`. There is no owner withdrawal path and `rescue()`
+reverts on both USDG and $SWEPT, so the burn is enforced by the contract rather than promised. Read
+that mechanically and not as a claim about value: a burn reduces supply, it does not create a
+dividend, a distribution, a revenue share, a profit interest, or any entitlement to protocol funds.
+**Holding $SWEPT confers no right to protocol revenue, no governance right over user funds, and no
+claim on any BagSweep entity.**
+
+**What has NOT been established.** As of this revision the repository contains no completed legal
+classification opinion for $SWEPT or for the protocol, no identified offeror or home jurisdiction
+for any public offer, no securities, commodities, money-transmission, or tax analysis, no
+regulatory filing or notification, and no authorized-service-provider perimeter. A token being
+called a utility token, a fee token, or a burn token does not by itself determine its
+classification; that follows the actual rights and economic substance under the law of each
+jurisdiction where it is offered or promoted. Nothing here asserts a conclusion on any of that.
+
+**Launch gates that are legal, not technical.** Separately from the engineering gates in
+`MAINNET_RUNBOOK.md`, the following remain open and are treated as blocking for anything
+value-bearing: qualified counsel review of $SWEPT and of the fee and buyback mechanism; the
+jurisdictions in which the interface may be offered or promoted, and any exclusions; consumer, tax,
+and accounting treatment of protocol fees; and whether any public communication about fees, burns,
+or the demand gate requires separate review before publication. Enabling `setFeeBps` is the point
+at which these stop being theoretical.
+
+**Communication discipline we hold ourselves to.** We separate software access from investment
+opportunity, mechanism from outcome, and testnet from mainnet. We do not describe the burn as yield,
+income, or a return; we do not present sweep automation as financial advice or as a strategy
+expected to be profitable; and we do not promise that any sweep executes, that any price is
+achieved, or that the keeper is available. Take-profit automation can lose money, and on a chain
+with no external oracle it carries the specific execution risk described above.
+
+**Not an offer.** This repository and its documentation are published as source-available technical
+material for review and independent verification. Nothing in it is an offer or solicitation to buy
+or sell any asset, an invitation to invest, or a recommendation. See `LICENSE` for what use is
+permitted.
+
 ## Safe harbor
 
 We will not pursue legal action against good-faith research that follows this policy,
