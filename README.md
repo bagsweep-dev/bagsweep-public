@@ -11,6 +11,8 @@
 ---
 
 > **Status.** Phase 1 (demand validation) is **live** at [app.bagsweep.xyz](https://app.bagsweep.xyz). The phase-2 protocol (ERC-4337 contracts + keeper) is built and running on **Robinhood Chain testnet**; mainnet is gated on a full external audit and the phase-1 demand signal.
+>
+> **Per-component maturity, including what is explicitly NOT true yet, is in [STATUS.md](STATUS.md).** Read that before evaluating any claim on this page: it labels every layer (live, testnet-validated, deployed-but-dormant, design-note-only), states the exact gate each must clear, and shows how to verify each row on-chain rather than taking it on trust.
 
 ## The idea
 
